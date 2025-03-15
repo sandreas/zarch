@@ -112,8 +112,21 @@ You either need to
 
 This can be prevented by providing your passphrase in a plaintext file, but I did not consider that, since it felt wrong to me. If you would like to do so, you can follow [this guide](https://web.archive.org/web/20250228214144/https://florianesser.ch/posts/20220714-arch-install-zbm/) or work through the [ZFSBootMenu] documentation.
 
+
+
 ## Let's go
 
+### Create a config
+
+... todo ...
+
+### Start installation
+
+⚠️WARNING: This script will wipe your disk. Only proceed if you know what you're doing.
+
+```bash
+bash <(curl -L zarch.pilabor.com)
+```
 
 ## References
 
