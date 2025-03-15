@@ -115,8 +115,19 @@ This can be prevented by providing your passphrase in a plaintext file, but I di
 ## Let's go
 
 
+## References
+
+I would like to thank the creators of the following projects / articles making this possible:
+
+- Florian Esser - [Install Arch Linux on an encrypted zpool with ZFSBootMenu]
+- Maurizio Oliveri - [arch_on_zfs]
+- Chris Titus - [ArchTitus]
 
 
 [Ventoy]: https://www.ventoy.net/en/index.html
 [USB flash installation medium]: https://wiki.archlinux.org/title/USB_flash_installation_medium
 [ZFSBootMenu]: https://docs.zfsbootmenu.org
+
+[ArchTitus]: https://github.com/ChrisTitusTech/ArchTitus/
+[Guide: Install Arch Linux on an encrypted zpool with ZFSBootMenu]: https://web.archive.org/web/20250228214144/https://florianesser.ch/posts/20220714-arch-install-zbm/
+[arch_on_zfs]: https://gist.github.com/Soulsuke/6a7d1f09f7fef968a2f32e0ff32a5c4c
