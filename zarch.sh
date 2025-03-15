@@ -23,20 +23,28 @@ PKG_AUR_LIST="$(grep -v "^\s*#" $PKG_AUR_FILE)"
 
 function RUN() {
   cmd="$@"
+  # echo command before executing it (to show progress)
+  echo "$cmd"
   output="$(sh -c "$cmd" 2>&1)"
   returnCode="$?"
 
+  # echo output after all variables have been set to prevent setting return code of echo command
+  echo $output
+
+  # log command, output and return code
   LOG "$cmd"
   [ "$output" = "" ] || LOG "$output"
   LOG "return code: $returnCode"
   LOG ""
 
+  # if command failed, exit program
   if ! [ "$returnCode" = "0" ]; then
     echo "COMMAND FAILED (Code $returnCode):"
     echo "==================================="
     echo "  $cmd"
     echo "  $output"
     echo "==================================="
+    exit $returnCode
   fi
 }
 
