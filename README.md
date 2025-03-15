@@ -18,18 +18,17 @@ Script for installing ArchLinux with ZFSBootMenu, native encryption and automati
 
 ZFS is not supported by the official images. However, there are efforts to provide downloadable ISO images including ZFS support:
 
-- https://github.com/r-maerz/archlinux-lts-zfs
-- https://github.com/stevleibelt/arch-linux-live-cd-iso-with-zfs
+- https://github.com/r-maerz/archlinux-lts-zfs (~1.22GB)
+- https://github.com/stevleibelt/arch-linux-live-cd-iso-with-zfs (~1.36GB)
 
 
 ## Installation media
 
 I personally recommend to use [Ventoy] and just copy over the custom ISO to start the installation process. However, you may also use other tools to create a [USB flash installation medium]. 
 
-
 ## Boot installation media and enable SSH
 
-Although this script installation does not require it, it sometimes is very helpful to perform or debug the installation via SSH. 
+Although this script installation does not require SSH per se, it is sometimes very helpful to perform or debug the installation over a remote connection to do some research or bridge waiting times. 
 
 ### SSH access
 ```bash

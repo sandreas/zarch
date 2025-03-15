@@ -72,5 +72,111 @@ will be COMPLETELY wiped and reformatted.
 "
 yes_or_no "Are you sure?" || exit 0
 
-echo "ok, lets go"
+echo "ok, let's go in"
 countdown 5
+
+
+zgenhostid
+
+# clear all PARTITIONS and create required ones
+sgdisk --zap-all $DISK
+sgdisk -n1:1M:+512M -t1:EF00 $DISK
+sgdisk -n2:0:0 -t2:BF00 $DISK
+sleep 1 # required, otherwise the pool creation fails
+
+# create ZFS pool and datasets
+zpool create -f -o ashift=12 \
+ -O compression=lz4 \
+ -O acltype=posixacl \
+ -O xattr=sa \
+ -O relatime=off \
+ -O atime=off \
+ -O encryption=aes-256-gcm \
+ -O keylocation=prompt \
+ -O keyformat=passphrase \
+ -o autotrim=on \
+ -m none $POOL ${DISK}-part2
+
+zfs create -o mountpoint=none $POOL/ROOT
+zfs create -o mountpoint=/ -o canmount=noauto $POOL/ROOT/arch
+zfs create -o mountpoint=/home $POOL/home
+
+zpool export $POOL
+zpool import -N -R /mnt $POOL
+zfs load-key -L prompt $POOL
+zfs mount $POOL/ROOT/arch
+zfs mount $POOL/home
+
+# create and mount EFI filesystem
+mkfs.vfat -F 32 -n EFI $DISK-part1
+mkdir /mnt/efi
+mount $DISK-part1 /mnt/efi
+
+# select fastest download mirror (significant improvements!)
+iso=$(curl -4 ifconfig.co/country-iso)
+pacman -Sy --noconfirm --needed reflector \
+    && cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak \
+    && reflector -a 48 -c "$iso" -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
+
+# enable parallel downloads
+sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
+
+# bootstrap base system into zfs filesystem under /mnt
+pacstrap /mnt base linux-lts linux-firmware linux-lts-headers nano vi vim efibootmgr zfs-dkms
+
+# bootstrap useful utilities
+pacstrap /mnt git inetutils man networkmanager openssh sudo wget zsh
+
+# bootstrap desktop environment
+pacstrap /mnt gnome
+
+cp /etc/hostid /mnt/etc
+cp /etc/resolv.conf /mnt/etc
+cp /etc/pacman.conf /mnt/etc/pacman.conf
+
+genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
+
+# locale settings
+echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than LANG - defaults the others
+sed -i "s/^#$LOCALE/$LOCALE/g" "/mnt/etc/locale.gen"
+echo "KEYMAP=$KEYMAP" > /mnt/etc/vconsole.conf
+
+if ! [ "$CONSOLE_FONT" = "" ]; then
+  echo "FONT=$CONSOLE_FONT" >> /mnt/etc/vconsole.conf
+fi
+
+echo "$HOSTNAME" > /mnt/etc/hostname
+
+echo "# Static table lookup for hostnames." > /mnt/etc/hosts
+echo "# See hosts(5) for details." >> /mnt/etc/hosts
+echo "127.0.0.1   localhost" > /mnt/etc/hosts
+echo "::1   localhost" >> /mnt/etc/hosts
+echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
+
+sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' "/mnt/etc/mkinitcpio.conf"
+
+arch-chroot /mnt hwclock --systohc
+arch-chroot /mnt timedatectl set-local-rtc 0
+arch-chroot /mnt locale-gen
+arch-chroot /mnt mkinitcpio -P
+arch-chroot /mnt zpool set cachefile=/etc/zfs/zpool.cache $POOL
+arch-chroot /mnt zpool set bootfs=$POOL/ROOT/arch $POOL
+arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
+arch-chroot /mnt mkdir -p /efi/EFI/zbm
+arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
+arch-chroot /mnt efibootmgr --disk $DISK --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet" --verbose
+arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" $POOL/ROOT
+
+
+# enable network manager service
+arch-chroot /mnt systemctl enable NetworkManager
+
+# enable gnome desktop environment auto start
+arch-chroot /mnt systemctl enable gdm
+
+# add normal user
+arch-chroot /mnt useradd -m -G wheel,sudo -s /usr/bin/zsh "$USERNAME"
+arch-chroot /mnt echo "$USERNAME:$USERPASSWD" | chpasswd
+
+umount /mnt/efi
+zpool export $POOL
