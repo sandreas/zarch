@@ -72,9 +72,9 @@ If `iwctl` is not available, you may also use the `NetworkManager` command line 
 nmcli device wifi connect <SSID> --ask
 ```
 
-## Initial script configuration - `.env`
+## Initial script configuration - `zarch.conf`
 
-This script needs some basic settings. These can be configured in a file called `.env` by default. There is a commented `.env.sample` in this repository, that you can use as a start:
+This script needs some basic settings. These can be configured in a file called `zarch.conf` by default. There is a commented `zarch.conf.sample` in this repository, that you can use as a start:
 
 ```
 # disk - path to destination disk
