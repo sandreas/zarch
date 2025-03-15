@@ -1,6 +1,23 @@
 #!/bin/sh
 
 ENV_FILE=".env"
+PKG_FILE="pkglist.txt"
+PKG_AUR_FILE="pkglist_aur.txt"
+
+
+# pkglist.txt can be overridden with pkglist.txt.local
+if [ -f "$PKG_FILE.local" ]; then
+  PKG_FILE="$PKG_FILE.local"
+fi
+
+# pkglist_aur.txt can be overridden with pkglist_aur.txt.local
+if [ -f "$PKG_AUR_FILE.local" ]; then
+  PKG_AUR_FILE="$PKG_AUR_FILE.local"
+fi
+
+PKG_LIST="$(grep -v "^\s*#" $PKG_FILE)"
+PKG_AUR_LIST="$(grep -v "^\s*#" $PKG_AUR_FILE)"
+
 
 # function to load .env variable by name, example:
 # load_env_variable DISK
@@ -41,7 +58,6 @@ export KEYMAP="$(load_env_variable KEYMAP)"
 export CONSOLE_FONT="$(load_env_variable CONSOLE_FONT)"
 export USERNAME="$(load_env_variable USERNAME)"
 export USERPASSWD="$(load_env_variable USERPASSWD)" # change after boot
-export DESKTOP_ENV="$(load_env_variable DESKTOP_ENV)"
 
 
 
@@ -126,15 +142,10 @@ pacman -Sy --noconfirm --needed reflector \
 sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
 # bootstrap base system into zfs filesystem under /mnt
-pacstrap /mnt base linux-lts linux-firmware linux-lts-headers nano vi vim efibootmgr zfs-dkms
+pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
 
 # bootstrap useful utilities
-pacstrap /mnt git inetutils man networkmanager openssh sudo wget zsh
-
-# bootstrap desktop environment
-if ! [ "$DESKTOP_ENV" = ""]; then
-  pacstrap /mnt $DESKTOP_ENV
-fi
+pacstrap /mnt "$PKG_LIST"
 
 cp /etc/hostid /mnt/etc
 cp /etc/resolv.conf /mnt/etc
@@ -174,17 +185,37 @@ arch-chroot /mnt efibootmgr --disk $DISK --part 1 --create --label "ZFSBootMenu"
 arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" $POOL/ROOT
 
 
-# enable network manager service
-arch-chroot /mnt systemctl enable NetworkManager
+# enable services based on selected install packages
+# exact word match is required, so no * is used in case
+for pkg in $PKG_LIST; do
+  s=""
 
-# enable gnome desktop environment auto start
-if [ "$DESKTOP_ENV" = "gnome" ]; then
-  arch-chroot /mnt systemctl enable gdm
-fi
+  case "$pkg" in
+    networkmanager)
+      s="NetworkManager"
+      ;;
+    gnome)
+      s="gdm"
+      ;;
+  esac
+
+  [ "$s" = "" ] || arch-chroot /mnt systemctl enable "$s"
+done;
+
 
 # add normal user
 arch-chroot /mnt useradd -m -G wheel,sudo -s /usr/bin/zsh "$USERNAME"
 arch-chroot /mnt echo "$USERNAME:$USERPASSWD" | chpasswd
+
+# install yay as normal user
+arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- cd /tmp/ \
+  && git clone https://aur.archlinux.org/yay-bin.git \
+  && cd yay-bin \
+  && makepkg -si \
+  && yay -Y --gendb
+
+# install aur packages via yay
+arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- yay -S --noconfirm --needed $PKG_AUR_LIST
 
 umount /mnt/efi
 zpool export $POOL
