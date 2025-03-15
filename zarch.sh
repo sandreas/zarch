@@ -41,6 +41,7 @@ export KEYMAP="$(load_env_variable KEYMAP)"
 export CONSOLE_FONT="$(load_env_variable CONSOLE_FONT)"
 export USERNAME="$(load_env_variable USERNAME)"
 export USERPASSWD="$(load_env_variable USERPASSWD)" # change after boot
+export DESKTOP_ENV="$(load_env_variable DESKTOP_ENV)"
 
 
 
@@ -76,6 +77,9 @@ echo "ok, let's go in"
 countdown 5
 
 
+# start script
+
+# generate host id (required by zfs)
 zgenhostid
 
 # clear all PARTITIONS and create required ones
@@ -128,7 +132,9 @@ pacstrap /mnt base linux-lts linux-firmware linux-lts-headers nano vi vim efiboo
 pacstrap /mnt git inetutils man networkmanager openssh sudo wget zsh
 
 # bootstrap desktop environment
-pacstrap /mnt gnome
+if ! [ "$DESKTOP_ENV" = ""]; then
+  pacstrap /mnt $DESKTOP_ENV
+fi
 
 cp /etc/hostid /mnt/etc
 cp /etc/resolv.conf /mnt/etc
@@ -172,7 +178,9 @@ arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 r
 arch-chroot /mnt systemctl enable NetworkManager
 
 # enable gnome desktop environment auto start
-arch-chroot /mnt systemctl enable gdm
+if [ "$DESKTOP_ENV" = "gnome" ]; then
+  arch-chroot /mnt systemctl enable gdm
+fi
 
 # add normal user
 arch-chroot /mnt useradd -m -G wheel,sudo -s /usr/bin/zsh "$USERNAME"
