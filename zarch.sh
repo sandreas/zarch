@@ -185,18 +185,24 @@ RUN mount $DISK-part1 /mnt/efi
 
 # select fastest download mirror (significant improvements!)
 iso=$(curl -4 ifconfig.co/country-iso)
-RUN pacman -Sy --noconfirm --needed reflector \
+pacman -Sy --noconfirm --needed reflector \
     && cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak \
     && reflector -a 48 -c "$iso" -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
+
+CHECK_SUCCESS "$?" "pacman -Sy --noconfirm --needed reflector" ""
 
 # enable parallel downloads (faster)
 RUN sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
 # bootstrap base system into zfs filesystem under /mnt
-RUN pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
+pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
+CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms" ""
+
 
 # bootstrap useful utilities
-RUN pacstrap /mnt "$PKG_LIST"
+pacstrap /mnt "$PKG_LIST"
+CHECK_SUCCESS "$?" "pacstrap /mnt "$PKG_LIST"" ""
+
 
 RUN cp /etc/hostid /mnt/etc
 RUN cp /etc/resolv.conf /mnt/etc
@@ -209,7 +215,7 @@ RUN echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than
 RUN sed -i "s/^#$LOCALE/$LOCALE/g" "/mnt/etc/locale.gen"
 RUN echo "KEYMAP=$KEYMAP" > /mnt/etc/vconsole.conf
 
-RUN [ "$CONSOLE_FONT" = "" ] || echo "FONT=$CONSOLE_FONT" >> /mnt/etc/vconsole.conf
+[ "$CONSOLE_FONT" = "" ] || RUN echo "FONT=$CONSOLE_FONT" >> /mnt/etc/vconsole.conf
 
 
 RUN echo "$HOSTNAME" > /mnt/etc/hostname
