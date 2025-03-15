@@ -37,15 +37,23 @@ function RUN() {
   LOG "return code: $returnCode"
   LOG ""
 
-  # if command failed, exit program
-  if ! [ "$returnCode" = "0" ]; then
-    echo "COMMAND FAILED (Code $returnCode):"
-    echo "==================================="
-    echo "  $cmd"
-    echo "  $output"
-    echo "==================================="
-    exit $returnCode
-  fi
+
+  CHECK_SUCCESS "$returnCode" "$cmd" "$output"
+}
+
+function CHECK_SUCCESS() {
+    returnCode="$1"
+    cmd="$2"
+    output="$3"
+    # if command failed, exit program
+    if ! [ "$returnCode" = "0" ]; then
+      echo "COMMAND FAILED (Code $returnCode):"
+      echo "==================================="
+      echo "  $cmd"
+      echo "  $output"
+      echo "==================================="
+      exit $returnCode
+    fi
 }
 
 function LOG() {
@@ -142,7 +150,8 @@ RUN sgdisk -n2:0:0 -t2:BF00 $DISK
 RUN sleep 1 # required, otherwise the pool creation fails
 
 # create ZFS pool and datasets
-RUN zpool create -f -o ashift=12 \
+# RUN not possible due to password prompt
+zpool create -f -o ashift=12 \
  -O compression=lz4 \
  -O acltype=posixacl \
  -O xattr=sa \
@@ -154,13 +163,18 @@ RUN zpool create -f -o ashift=12 \
  -o autotrim=on \
  -m none $POOL ${DISK}-part2
 
+CHECK_SUCCESS "$?" "zpool create" ""
+
 RUN zfs create -o mountpoint=none $POOL/ROOT
 RUN zfs create -o mountpoint=/ -o canmount=noauto $POOL/ROOT/arch
 RUN zfs create -o mountpoint=/home $POOL/home
 
 RUN zpool export $POOL
+
 RUN zpool import -N -R /mnt $POOL
-RUN zfs load-key -L prompt $POOL
+# RUN not possible due to password prompt
+zfs load-key -L prompt $POOL
+CHECK_SUCCESS "$?" "zfs load-key -L prompt $POOL" ""
 RUN zfs mount $POOL/ROOT/arch
 RUN zfs mount $POOL/home
 
