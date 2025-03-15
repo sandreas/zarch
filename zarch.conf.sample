@@ -1,5 +1,5 @@
 # disk - path to destination disk
-DISK="/dev/disk/by-id/nvme-SAMSUNG_my-id"
+DISK="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi0"
 # pool - ZFS root pool
 POOL="rpool"
 # hostname - hostname for installation

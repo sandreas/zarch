@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ENV_FILE=".env"
+CONF_FILE="zarch.conf"
 PKG_FILE="pkglist.txt"
 PKG_AUR_FILE="pkglist_aur.txt"
 
@@ -22,7 +22,7 @@ PKG_AUR_LIST="$(grep -v "^\s*#" $PKG_AUR_FILE)"
 # function to load .env variable by name, example:
 # load_env_variable DISK
 function load_env_variable {
-  echo "$(grep "$1" "$ENV_FILE" | cut -d '=' -f 2 | sed "s/^[\"']\(.*\)[\"'].*$/\1/")"
+  echo "$(grep "$1" "$CONF_FILE" | cut -d '=' -f 2 | sed "s/^[\"']\(.*\)[\"'].*$/\1/")"
   return $?
 }
 
@@ -44,8 +44,8 @@ function countdown {
 }
 
 # .env file must exist, otherwise exit
-if ! [ -f "$ENV_FILE" ]; then
-  echo "please create a file called '$ENV_FILE' in the current directory"
+if ! [ -f "$CONF_FILE" ]; then
+  echo "please create a file called '$CONF_FILE' in the current directory"
   exit 1
 fi
 
