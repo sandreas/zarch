@@ -140,8 +140,8 @@ countdown 5
 
 # start script
 
-# generate host id (required by zfs)
-RUN [ -f /etc/hostid ] || zgenhostid
+# generate /etc/hostid (required by zfs)
+[ -f /etc/hostid ] || RUN zgenhostid
 
 # clear all PARTITIONS and create required ones
 RUN sgdisk --zap-all $DISK
