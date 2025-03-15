@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CONF_FILE="zarch.conf"
+export CONF_FILE="zarch.conf"
 PKG_FILE="pkglist.txt"
 PKG_AUR_FILE="pkglist_aur.txt"
 
@@ -17,6 +17,35 @@ fi
 
 PKG_LIST="$(grep -v "^\s*#" $PKG_FILE)"
 PKG_AUR_LIST="$(grep -v "^\s*#" $PKG_AUR_FILE)"
+
+// /etc/hostid
+
+
+function RUN() {
+  cmd="$@"
+  output="$(sh -c "$cmd" 2>&1)"
+  returnCode="$?"
+
+  LOG "$cmd"
+  [ "$output" = "" ] || LOG "$output"
+  LOG "return code: $returnCode"
+  LOG ""
+
+  if ! [ "$returnCode" = "0" ]; then
+    echo "COMMAND FAILED (Code $returnCode):"
+    echo "==================================="
+    echo "  $cmd"
+    echo "  $output"
+    echo "==================================="
+  fi
+}
+
+function LOG() {
+  if [ "$LOG_FILE" = "" ]; then
+    export LOG_FILE="$(basename $0).log"
+  fi
+  echo "$1" >> "$LOG_FILE"
+}
 
 
 # function to load .env variable by name, example:
@@ -96,16 +125,16 @@ countdown 5
 # start script
 
 # generate host id (required by zfs)
-zgenhostid
+RUN [ -f /etc/hostid ] || zgenhostid
 
 # clear all PARTITIONS and create required ones
-sgdisk --zap-all $DISK
-sgdisk -n1:1M:+512M -t1:EF00 $DISK
-sgdisk -n2:0:0 -t2:BF00 $DISK
-sleep 1 # required, otherwise the pool creation fails
+RUN sgdisk --zap-all $DISK
+RUN sgdisk -n1:1M:+512M -t1:EF00 $DISK
+RUN sgdisk -n2:0:0 -t2:BF00 $DISK
+RUN sleep 1 # required, otherwise the pool creation fails
 
 # create ZFS pool and datasets
-zpool create -f -o ashift=12 \
+RUN zpool create -f -o ashift=12 \
  -O compression=lz4 \
  -O acltype=posixacl \
  -O xattr=sa \
@@ -117,79 +146,77 @@ zpool create -f -o ashift=12 \
  -o autotrim=on \
  -m none $POOL ${DISK}-part2
 
-zfs create -o mountpoint=none $POOL/ROOT
-zfs create -o mountpoint=/ -o canmount=noauto $POOL/ROOT/arch
-zfs create -o mountpoint=/home $POOL/home
+RUN zfs create -o mountpoint=none $POOL/ROOT
+RUN zfs create -o mountpoint=/ -o canmount=noauto $POOL/ROOT/arch
+RUN zfs create -o mountpoint=/home $POOL/home
 
-zpool export $POOL
-zpool import -N -R /mnt $POOL
-zfs load-key -L prompt $POOL
-zfs mount $POOL/ROOT/arch
-zfs mount $POOL/home
+RUN zpool export $POOL
+RUN zpool import -N -R /mnt $POOL
+RUN zfs load-key -L prompt $POOL
+RUN zfs mount $POOL/ROOT/arch
+RUN zfs mount $POOL/home
 
 # create and mount EFI filesystem
-mkfs.vfat -F 32 -n EFI $DISK-part1
-mkdir /mnt/efi
-mount $DISK-part1 /mnt/efi
+RUN mkfs.vfat -F 32 -n EFI $DISK-part1
+RUN mkdir /mnt/efi
+RUN mount $DISK-part1 /mnt/efi
 
 # select fastest download mirror (significant improvements!)
 iso=$(curl -4 ifconfig.co/country-iso)
-pacman -Sy --noconfirm --needed reflector \
+RUN pacman -Sy --noconfirm --needed reflector \
     && cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak \
     && reflector -a 48 -c "$iso" -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
 
-# enable parallel downloads
-sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
+# enable parallel downloads (faster)
+RUN sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
 # bootstrap base system into zfs filesystem under /mnt
-pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
+RUN pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
 
 # bootstrap useful utilities
-pacstrap /mnt "$PKG_LIST"
+RUN pacstrap /mnt "$PKG_LIST"
 
-cp /etc/hostid /mnt/etc
-cp /etc/resolv.conf /mnt/etc
-cp /etc/pacman.conf /mnt/etc/pacman.conf
+RUN cp /etc/hostid /mnt/etc
+RUN cp /etc/resolv.conf /mnt/etc
+RUN cp /etc/pacman.conf /mnt/etc/pacman.conf
 
-genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
+RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 
 # locale settings
-echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than LANG - defaults the others
-sed -i "s/^#$LOCALE/$LOCALE/g" "/mnt/etc/locale.gen"
-echo "KEYMAP=$KEYMAP" > /mnt/etc/vconsole.conf
+RUN echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than LANG - defaults the others
+RUN sed -i "s/^#$LOCALE/$LOCALE/g" "/mnt/etc/locale.gen"
+RUN echo "KEYMAP=$KEYMAP" > /mnt/etc/vconsole.conf
 
-if ! [ "$CONSOLE_FONT" = "" ]; then
-  echo "FONT=$CONSOLE_FONT" >> /mnt/etc/vconsole.conf
-fi
+RUN [ "$CONSOLE_FONT" = "" ] || echo "FONT=$CONSOLE_FONT" >> /mnt/etc/vconsole.conf
 
-echo "$HOSTNAME" > /mnt/etc/hostname
 
-echo "# Static table lookup for hostnames." > /mnt/etc/hosts
-echo "# See hosts(5) for details." >> /mnt/etc/hosts
-echo "127.0.0.1   localhost" > /mnt/etc/hosts
-echo "::1   localhost" >> /mnt/etc/hosts
-echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
+RUN echo "$HOSTNAME" > /mnt/etc/hostname
 
-sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' "/mnt/etc/mkinitcpio.conf"
+RUN echo "# Static table lookup for hostnames." > /mnt/etc/hosts
+RUN echo "# See hosts(5) for details." >> /mnt/etc/hosts
+RUN echo "127.0.0.1   localhost" > /mnt/etc/hosts
+RUN echo "::1   localhost" >> /mnt/etc/hosts
+RUN echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
 
-arch-chroot /mnt hwclock --systohc
-arch-chroot /mnt timedatectl set-local-rtc 0
-arch-chroot /mnt locale-gen
-arch-chroot /mnt mkinitcpio -P
-arch-chroot /mnt zpool set cachefile=/etc/zfs/zpool.cache $POOL
-arch-chroot /mnt zpool set bootfs=$POOL/ROOT/arch $POOL
-arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
-arch-chroot /mnt mkdir -p /efi/EFI/zbm
-arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
-arch-chroot /mnt efibootmgr --disk $DISK --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet" --verbose
-arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" $POOL/ROOT
+RUN sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' "/mnt/etc/mkinitcpio.conf"
+
+RUN arch-chroot /mnt hwclock --systohc
+RUN arch-chroot /mnt timedatectl set-local-rtc 0
+RUN arch-chroot /mnt locale-gen
+RUN arch-chroot /mnt mkinitcpio -P
+RUN arch-chroot /mnt zpool set cachefile=/etc/zfs/zpool.cache $POOL
+RUN arch-chroot /mnt zpool set bootfs=$POOL/ROOT/arch $POOL
+RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
+RUN arch-chroot /mnt mkdir -p /efi/EFI/zbm
+RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
+RUN arch-chroot /mnt efibootmgr --disk $DISK --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet" --verbose
+RUN arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" $POOL/ROOT
 
 
 # enable services based on selected install packages
 # exact word match is required, so no * is used in case
 for pkg in $PKG_LIST; do
   s=""
-
   case "$pkg" in
     networkmanager)
       s="NetworkManager"
@@ -199,23 +226,23 @@ for pkg in $PKG_LIST; do
       ;;
   esac
 
-  [ "$s" = "" ] || arch-chroot /mnt systemctl enable "$s"
+  [ "$s" = "" ] || RUN arch-chroot /mnt systemctl enable "$s"
 done;
 
 
 # add normal user
-arch-chroot /mnt useradd -m -G wheel,sudo -s /usr/bin/zsh "$USERNAME"
-arch-chroot /mnt echo "$USERNAME:$USERPASSWD" | chpasswd
+RUN arch-chroot /mnt useradd -m -G wheel,sudo -s /usr/bin/zsh "$USERNAME"
+RUN arch-chroot /mnt echo "$USERNAME:$USERPASSWD" | chpasswd
 
 # install yay as normal user
-arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- cd /tmp/ \
+RUN arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- cd /tmp/ \
   && git clone https://aur.archlinux.org/yay-bin.git \
   && cd yay-bin \
   && makepkg -si \
   && yay -Y --gendb
 
 # install aur packages via yay
-arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- yay -S --noconfirm --needed $PKG_AUR_LIST
+RUN arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- yay -S --noconfirm --needed $PKG_AUR_LIST
 
-umount /mnt/efi
-zpool export $POOL
+RUN umount /mnt/efi
+RUN zpool export $POOL

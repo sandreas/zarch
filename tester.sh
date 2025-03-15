@@ -1,18 +1,32 @@
 #!/bin/sh
-PKG_LIST="a b c gnome gnome-extension-testing networkmanager testing"
+function RUN() {
+  cmd="$@"
+  output="$(sh -c "$cmd" 2>&1)"
+  returnCode="$?"
 
-for pkg in $PKG_LIST; do
+  LOG "$cmd"
+  [ "$output" = "" ] || LOG "$output"
+  LOG "return code: $returnCode"
+  LOG ""
 
-  s=""
+  if ! [ "$returnCode" = "0" ]; then
+    echo "COMMAND FAILED (Code $returnCode):"
+    echo "==================================="
+    echo "  $cmd"
+    echo "  $output"
+    echo "==================================="
+  fi
+}
 
-  case "$pkg" in
-    networkmanager)
-      s="NetworkManager"
-      ;;
-    gnome)
-      s="gdm"
-      ;;
-  esac
+function LOG() {
+  if [ "$LOG_FILE" = "" ]; then
+    export LOG_FILE="$(basename $0).log"
+  fi
+  echo "$1" >> "$LOG_FILE"
+}
 
-  [ "$s" = "" ] || echo "$s"
-done;
+RUN [ -f /etc/hostid ] || zgenhostid
+
+
+
+
