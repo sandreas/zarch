@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# define fix config vars
 export CONF_FILE="zarch.conf"
 PKG_FILE="pkglist.txt"
 PKG_AUR_FILE="pkglist_aur.txt"
@@ -15,12 +16,11 @@ if [ -f "$PKG_AUR_FILE.local" ]; then
   PKG_AUR_FILE="$PKG_AUR_FILE.local"
 fi
 
-PKG_LIST="$(grep -v "^\s*#" $PKG_FILE)"
-PKG_AUR_LIST="$(grep -v "^\s*#" $PKG_AUR_FILE)"
+# read pkglist.txt and pkglist_aur.txt
+PKG_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_FILE)"
+PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_AUR_FILE)"
 
-// /etc/hostid
-
-
+# RUN executes and logs a command (e.g. RUN echo "test")
 function RUN() {
   cmd="$@"
   # echo command before executing it (to show progress)
@@ -41,6 +41,7 @@ function RUN() {
   CHECK_SUCCESS "$returnCode" "$cmd" "$output"
 }
 
+# CHECK_SUCCESS checks the success return code of a command (e.g. CHECK_SUCCESS "$?" "echo 'test'")
 function CHECK_SUCCESS() {
     returnCode="$1"
     cmd="$2"
@@ -151,6 +152,7 @@ RUN sleep 1 # required, otherwise the pool creation fails
 
 # create ZFS pool and datasets
 # RUN not possible due to password prompt
+echo "zpool create -f -o ashift=12 ..."
 zpool create -f -o ashift=12 \
  -O compression=lz4 \
  -O acltype=posixacl \
@@ -162,8 +164,7 @@ zpool create -f -o ashift=12 \
  -O keyformat=passphrase \
  -o autotrim=on \
  -m none $POOL ${DISK}-part2
-
-CHECK_SUCCESS "$?" "zpool create" ""
+CHECK_SUCCESS "$?" "zpool create"
 
 RUN zfs create -o mountpoint=none $POOL/ROOT
 RUN zfs create -o mountpoint=/ -o canmount=noauto $POOL/ROOT/arch
@@ -173,8 +174,9 @@ RUN zpool export $POOL
 
 RUN zpool import -N -R /mnt $POOL
 # RUN not possible due to password prompt
+echo "zfs load-key -L prompt $POOL"
 zfs load-key -L prompt $POOL
-CHECK_SUCCESS "$?" "zfs load-key -L prompt $POOL" ""
+CHECK_SUCCESS "$?" "zfs load-key -L prompt $POOL"
 RUN zfs mount $POOL/ROOT/arch
 RUN zfs mount $POOL/home
 
@@ -185,23 +187,26 @@ RUN mount $DISK-part1 /mnt/efi
 
 # select fastest download mirror (significant improvements!)
 iso=$(curl -4 ifconfig.co/country-iso)
+echo "pacman -Sy --noconfirm --needed reflector"
 pacman -Sy --noconfirm --needed reflector \
     && cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak \
     && reflector -a 48 -c "$iso" -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
 
-CHECK_SUCCESS "$?" "pacman -Sy --noconfirm --needed reflector" ""
+CHECK_SUCCESS "$?" "pacman -Sy --noconfirm --needed reflector"
 
 # enable parallel downloads (faster)
 RUN sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
 # bootstrap base system into zfs filesystem under /mnt
+echo "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
 pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
-CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms" ""
+CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
 
 
 # bootstrap useful utilities
+echo "pacstrap /mnt "$PKG_LIST""
 pacstrap /mnt "$PKG_LIST"
-CHECK_SUCCESS "$?" "pacstrap /mnt "$PKG_LIST"" ""
+CHECK_SUCCESS "$?" "pacstrap /mnt "$PKG_LIST""
 
 
 RUN cp /etc/hostid /mnt/etc

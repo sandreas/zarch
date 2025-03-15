@@ -1,32 +1,12 @@
 #!/bin/sh
-function RUN() {
-  cmd="$@"
-  output="$(sh -c "$cmd" 2>&1)"
-  returnCode="$?"
+PKG_FILE="pkglist.txt"
+PKG_AUR_FILE="pkglist_aur.txt"
 
-  LOG "$cmd"
-  [ "$output" = "" ] || LOG "$output"
-  LOG "return code: $returnCode"
-  LOG ""
-
-  if ! [ "$returnCode" = "0" ]; then
-    echo "COMMAND FAILED (Code $returnCode):"
-    echo "==================================="
-    echo "  $cmd"
-    echo "  $output"
-    echo "==================================="
-  fi
-}
-
-function LOG() {
-  if [ "$LOG_FILE" = "" ]; then
-    export LOG_FILE="$(basename $0).log"
-  fi
-  echo "$1" >> "$LOG_FILE"
-}
-
-RUN [ -f /etc/hostid ] || zgenhostid
+# read pkglist.txt and pkglist_aur.txt
+PKG_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_FILE)"
+PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_AUR_FILE)"
 
 
+echo "$PKG_LIST"
 
 
