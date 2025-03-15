@@ -77,7 +77,8 @@ nmcli device wifi connect <SSID> --ask
 This script needs some basic settings. These can be configured in a file called `.env` by default. There is a commented `.env.sample` in this repository, that you can use as a start:
 
 ```
-DISK="/dev/disk/by-id/nvme-SAMSUNG_my-id"
+# disk - path to destination disk
+DISK="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi0"
 # pool - ZFS root pool
 POOL="rpool"
 # hostname - hostname for installation
