@@ -276,7 +276,7 @@ RUN arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBoo
 
 next_cmd="arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid="$(hostid)"" $POOL/ROOT"
 echo "$next_cmd"
-RUN arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" "$POOL/ROOT"
+arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" "$POOL/ROOT"
 CHECK_SUCCESS "$?" "$next_cmd"
 
 
