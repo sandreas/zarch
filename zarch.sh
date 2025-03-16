@@ -102,8 +102,8 @@ export TIMEZONE="$(load_env_variable TIMEZONE)"
 export LOCALE="$(load_env_variable LOCALE)"
 export KEYMAP="$(load_env_variable KEYMAP)"
 export CONSOLE_FONT="$(load_env_variable CONSOLE_FONT)"
-export USERNAME="$(load_env_variable USERNAME)"
-export USERPASSWD="$(load_env_variable USERPASSWD)" # change after boot
+export USER_NAME="$(load_env_variable USER_NAME)"
+export USER_PASS="$(load_env_variable USER_PASS)" # change after boot
 
 
 
@@ -127,8 +127,8 @@ HOSTNAME=$HOSTNAME
 TIMEZONE=$TIMEZONE
 LOCALE=$LOCALE
 CONSOLE_FONT=$CONSOLE_FONT
-USERNAME=$USERNAME
-USERPASSWD=$USERPASSWD
+USER_NAME=$USER_NAME
+USER_PASS=$USER_PASS
 
 WARNING: If you proceed, your disk $DISK
 will be COMPLETELY wiped and reformatted.
@@ -202,12 +202,14 @@ echo "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr z
 pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
 CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
 
+# add normal user
+RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME"
+RUN arch-chroot /mnt echo "$USER_NAME:$USER_PASS" | chpasswd
 
 # bootstrap useful utilities
-echo "pacstrap /mnt "$PKG_LIST""
-pacstrap /mnt "$PKG_LIST"
-CHECK_SUCCESS "$?" "pacstrap /mnt "$PKG_LIST""
-
+echo "grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -"
+grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -
+CHECK_SUCCESS "$?" "grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -"
 
 RUN cp /etc/hostid /mnt/etc
 RUN cp /etc/resolv.conf /mnt/etc
@@ -217,7 +219,7 @@ RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 
 # locale settings
 RUN echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than LANG - defaults the others
-RUN sed -i "s/^#$LOCALE/$LOCALE/g" "/mnt/etc/locale.gen"
+RUN sed -i "s/^#$LOCALE/$LOCALE/g" /mnt/etc/locale.gen
 RUN echo "KEYMAP=$KEYMAP" > /mnt/etc/vconsole.conf
 
 [ "$CONSOLE_FONT" = "" ] || RUN echo "FONT=$CONSOLE_FONT" >> /mnt/etc/vconsole.conf
@@ -231,7 +233,11 @@ RUN echo "127.0.0.1   localhost" > /mnt/etc/hosts
 RUN echo "::1   localhost" >> /mnt/etc/hosts
 RUN echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
 
-RUN sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' "/mnt/etc/mkinitcpio.conf"
+# add zfs to mkinitcpio hooks
+RUN sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' /mnt/etc/mkinitcpio.conf
+
+# configure all members of group wheel to have sudo
+RUN sed -i 's//^# %wheel ALL=(ALL:ALL) ALL$/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
 
 RUN arch-chroot /mnt hwclock --systohc
 RUN arch-chroot /mnt timedatectl set-local-rtc 0
@@ -263,19 +269,17 @@ for pkg in $PKG_LIST; do
 done;
 
 
-# add normal user
-RUN arch-chroot /mnt useradd -m -G wheel,sudo -s /usr/bin/zsh "$USERNAME"
-RUN arch-chroot /mnt echo "$USERNAME:$USERPASSWD" | chpasswd
+
 
 # install yay as normal user
-RUN arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- cd /tmp/ \
+RUN arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- cd /tmp/ \
   && git clone https://aur.archlinux.org/yay-bin.git \
   && cd yay-bin \
   && makepkg -si \
   && yay -Y --gendb
 
 # install aur packages via yay
-RUN arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- yay -S --noconfirm --needed $PKG_AUR_LIST
+RUN arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- yay -S --noconfirm --needed $PKG_AUR_LIST
 
 RUN umount /mnt/efi
 RUN zpool export $POOL

@@ -10,9 +10,9 @@ TIMEZONE="Europe/Berlin"
 LOCALE="de_DE.UTF-8"
 # keymap - preferred keyboard layout
 KEYMAP="de-latin1-nodeadkeys"
-# console font - bootup font (see https://wiki.archlinux.org/title/Linux_console)
+# console font - boot up font (see https://wiki.archlinux.org/title/Linux_console)
 CONSOLE_FONT="lat2-16"
-# username - creates sudo user besides root
-USERNAME="sandreas"
-# userpasswd - password for this user, you can either specifiy plaintext or just change it after installation
-USERPASSWD="password"
+# user name - creates sudo user besides root
+USER_NAME="sandreas"
+# user pass - password for this user, you can either specify plaintext or just change it after installation
+USER_PASS="password"
