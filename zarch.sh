@@ -1,4 +1,7 @@
 #!/bin/sh
+# todo:
+# - [ ] make sudo work without password till end, then replace it with the passvword variant
+
 
 # define fix config vars
 export CONF_FILE="zarch.conf"
@@ -259,11 +262,7 @@ echo "$next_cmd"
 sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' /mnt/etc/mkinitcpio.conf
 CHECK_SUCCESS "$?" "$next_cmd"
 
-# configure all members of group wheel to have sudo
-next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers"
-echo "$next_cmd"
-sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
-CHECK_SUCCESS "$?" "$next_cmd"
+
 
 RUN arch-chroot /mnt hwclock --systohc
 RUN arch-chroot /mnt timedatectl set-local-rtc 0
@@ -299,18 +298,21 @@ for pkg in $PKG_LIST; do
 done;
 
 
-
+# configure all members of group wheel to have sudo without password until installation is finished
+next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers"
+echo "$next_cmd"
+sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
+CHECK_SUCCESS "$?" "$next_cmd"
 
 # build yay package as normal user
 RUN git clone https://aur.archlinux.org/yay-bin.git "/mnt/home/$USER_NAME/yay-bin"
 RUN arch-chroot /mnt chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME/yay-bin"
-# enable sudo
 
 # enable sudo without password prompt
-next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo -S touch /root/.bash_history <<< \"$USER_PASS\""
-echo "$next_cmd"
-arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
-CHECK_SUCESS "$?" "$next_cmd"
+# next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo -S touch /root/.bash_history <<< \"$USER_PASS\""
+# echo "$next_cmd"
+# arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
+# CHECK_SUCCESS "$?" "$next_cmd"
 # make and install package
 RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -si
 
@@ -330,10 +332,10 @@ RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -si
 # arch-chroot -u "$USER_NAME" /mnt "$yay_script_file"
 
 # enable sudo without password prompt
-next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo -S touch /root/.bash_history <<< \"$USER_PASS\""
-echo "$next_cmd"
-arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
-CHECK_SUCCESS "$?" "$next_cmd"
+# next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo -S touch /root/.bash_history <<< \"$USER_PASS\""
+# echo "$next_cmd"
+# arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
+# CHECK_SUCCESS "$?" "$next_cmd"
 
 # install selected packages via yay
 next_cmd="arch-chroot -u \"$USER_NAME\" /mnt yay -Sy --sudoloop --noconfirm --needed $(echo $PKG_AUR_LIST | tr '\n' ' ')"
@@ -349,6 +351,17 @@ CHECK_SUCCESS "$?" "$next_cmd"
 #  echo $pkg
 # done;
 
+# remove sudo without password
+next_cmd="sed -i '/^%wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^%wheel/# %wheel/g' /mnt/etc/sudoers"
+echo "$next_cmd"
+sed -i '/^%wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^%wheel/# %wheel/g' /mnt/etc/sudoers
+CHECK_SUCCESS "$?" "$next_cmd"
+
+# configure all members of group wheel to have sudo (with password required)
+next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers"
+echo "$next_cmd"
+sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
+CHECK_SUCCESS "$?" "$next_cmd"
 
 RUN umount /mnt/efi
 RUN zpool export "$POOL"
