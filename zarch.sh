@@ -301,15 +301,21 @@ done;
 
 
 
-# build yay package as normal user (root does not work for makepkg)
-# then install via pacman -U to prevent asking for password
+# build yay package as normal user
 RUN git clone https://aur.archlinux.org/yay-bin.git "/mnt/home/$USER_NAME/yay-bin"
 RUN arch-chroot /mnt chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME/yay-bin"
-RUN arch-chroot /mnt su -c "makepkg -D /home/$USER_NAME/yay-bin -s" "$USER_NAME"
-# RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -s
+# enable sudo
 
-yay_pkg_file="$(find /mnt/home/sandreas/yay-bin/ -name 'yay-bin-*.pkg.tar.*' -not -name '*-debug-*' -exec basename {} \;)"
-RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$yay_pkg_file"
+# enable sudo without password prompt
+next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo -S touch /root/.bash_history <<< \"$USER_PASS\""
+echo "$next_cmd"
+arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
+CHECK_SUCESS "$?" "$next_cmd"
+# make and install package
+RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -si
+
+# yay_pkg_file="$(find /mnt/home/sandreas/yay-bin/ -name 'yay-bin-*.pkg.tar.*' -not -name '*-debug-*' -exec basename {} \;)"
+# RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$yay_pkg_file"
 
 # install aur packages via yay
 # RUN echo "$USER_NAME $HOSTNAME = NOPASSWD: /usr/bin/pacman" > /mnt/etc/sudoers.d/yay
@@ -323,16 +329,25 @@ RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$y
 # arch-chroot /mnt chown "$USER_NAME:$USER_NAME" "$yay_script_file"
 # arch-chroot -u "$USER_NAME" /mnt "$yay_script_file"
 
+# enable sudo without password prompt
+next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo -S touch /root/.bash_history <<< \"$USER_PASS\""
+echo "$next_cmd"
 arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
+CHECK_SUCCESS "$?" "$next_cmd"
+
+# install selected packages via yay
+next_cmd="arch-chroot -u \"$USER_NAME\" /mnt yay -Sy --sudoloop --noconfirm --needed $(echo $PKG_AUR_LIST | tr '\n' ' ')"
+echo "$next_cmd"
 arch-chroot -u "$USER_NAME" /mnt yay -Sy --sudoloop --noconfirm --needed $(echo $PKG_AUR_LIST | tr '\n' ' ')
+CHECK_SUCCESS "$?" "$next_cmd"
 
 
 # RUN arch-chroot -u "$USER_NAME" /mnt "echo $USER_PASS | sudo -S echo \"\" && yay --sudoloop --noconfirm --needed $PKG_AUR_LIST"
 # arch-chroot -u "$USER_NAME" /mnt echo "$USER_PASS"
 
-for pkg in $PKG_AUR_LIST; do
-  echo $pkg
-done;
+# for pkg in $PKG_AUR_LIST; do
+#  echo $pkg
+# done;
 
 
 RUN umount /mnt/efi
