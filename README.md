@@ -125,7 +125,7 @@ This can be prevented by providing your passphrase in a plaintext file, but I di
 
 ```bash
 # install required tools
-pacman -Sy git screen vi vim
+pacman -Sy --noconfirm --needed git screen vim
 git clone https://github.com/sandreas/zarch
 cd zarch
 cp zarch.conf.sample zarch.conf

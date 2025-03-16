@@ -221,7 +221,7 @@ CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-header
 # add normal user
 # openssl passwd -6 -stdin seems to fail
 # get mkpasswd instead
-pacman -Sy whois
+pacman -Sy --needed --noconfirm whois
 CRYPT_PASS="$(echo "$USER_PASS" | mkpasswd -s)"
 RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME" -p "$CRYPT_PASS"
 # RUN arch-chroot /mnt echo "$USER_NAME:$USER_PASS" | chpasswd
