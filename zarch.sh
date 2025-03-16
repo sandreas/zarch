@@ -121,7 +121,7 @@ echo -ne "
 ----------------------------------------
 "
 
-if ! [ -d /sys/firmware/efiy ]; then
+if ! [ -d /sys/firmware/efi ]; then
   echo "ERROR:"
   echo "zarch.sh does only work on modern EFI systems, you seem to use traditional BIOS"
   exit 1
