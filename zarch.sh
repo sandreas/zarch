@@ -219,7 +219,10 @@ pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkm
 CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
 
 # add normal user
-CRYPT_PASS="$(echo "$USER_PASS" | openssl passwd -6 -stdin)"
+# openssl passwd -6 -stdin seems to fail
+# get mkpasswd instead
+pacman -Sy whois
+CRYPT_PASS="$(echo "$USER_PASS" | mkpasswd -s)"
 RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME" -p "$CRYPT_PASS"
 # RUN arch-chroot /mnt echo "$USER_NAME:$USER_PASS" | chpasswd
 
@@ -298,16 +301,39 @@ done;
 
 
 
-# install yay as normal user
-arch-chroot /mnt /usr/bin/runuser -u "$USER_NAME" -- git clone https://aur.archlinux.org/yay-bin.git \
-  && cd yay-bin \
-  && makepkg -si \
-  && yay -Y --gendb
-CHECK_SUCCESS "$?" "runuser yay"
+# build yay package as normal user (root does not work for makepkg)
+# then install via pacman -U to prevent asking for password
+RUN git clone https://aur.archlinux.org/yay-bin.git "/mnt/home/$USER_NAME/yay-bin"
+RUN arch-chroot /mnt chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME/yay-bin"
+RUN arch-chroot /mnt su -c "makepkg -D /home/$USER_NAME/yay-bin -s" "$USER_NAME"
+# RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -s
+
+yay_pkg_file="$(find /mnt/home/sandreas/yay-bin/ -name 'yay-bin-*.pkg.tar.*' -not -name '*-debug-*' -exec basename {} \;)"
+RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$yay_pkg_file"
 
 # install aur packages via yay
-arch-chroot /mnt /usr/bin/runuser -u "$USER_NAME" -- yay -S --noconfirm --needed "$PKG_AUR_LIST"
-CHECK_SUCCESS "$?" "yay -S"
+# RUN echo "$USER_NAME $HOSTNAME = NOPASSWD: /usr/bin/pacman" > /mnt/etc/sudoers.d/yay
+# yay_script_file="/home/$USER_NAME/aurinstall.sh"
+# cat <<EOF > "/mnt$yay_script_file"
+# #!/bin/sh
+# echo "$USER_PASS" | sudo -S echo ""
+# yay --sudoloop --noconfirm --needed $(echo "$PKG_AUR_LIST" | tr '\n' ' ')
+# EOF
+# arch-chroot /mnt chmod +x "$yay_script_file"
+# arch-chroot /mnt chown "$USER_NAME:$USER_NAME" "$yay_script_file"
+# arch-chroot -u "$USER_NAME" /mnt "$yay_script_file"
+
+arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
+arch-chroot -u "$USER_NAME" /mnt yay -Sy --sudoloop --noconfirm --needed $(echo $PKG_AUR_LIST | tr '\n' ' ')
+
+
+# RUN arch-chroot -u "$USER_NAME" /mnt "echo $USER_PASS | sudo -S echo \"\" && yay --sudoloop --noconfirm --needed $PKG_AUR_LIST"
+# arch-chroot -u "$USER_NAME" /mnt echo "$USER_PASS"
+
+for pkg in $PKG_AUR_LIST; do
+  echo $pkg
+done;
+
 
 RUN umount /mnt/efi
 RUN zpool export "$POOL"

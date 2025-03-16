@@ -1,5 +1,7 @@
 # zarch
 
+<!-- pacman -Qqme > installs.txt -->
+
 Script for installing ArchLinux with ZFSBootMenu, native encryption and automatic system snapshots.
 
 **IMPORTANT: This script is designed to work on modern EFI systems and DOES NOT SUPPORT traditional BIOS ones.**
