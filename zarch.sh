@@ -300,13 +300,13 @@ done;
 
 
 # install yay as normal user
-arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- git clone https://aur.archlinux.org/yay-bin.git \
+arch-chroot /mnt /usr/bin/runuser -u "$USER_NAME" -- git clone https://aur.archlinux.org/yay-bin.git \
   && cd yay-bin \
   && makepkg -si \
   && yay -Y --gendb
 
 # install aur packages via yay
-RUN arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- yay -S --noconfirm --needed $PKG_AUR_LIST
+arch-chroot /mnt /usr/bin/runuser -u "$USER_NAME" -- yay -S --noconfirm --needed "$PKG_AUR_LIST"
 
 RUN umount /mnt/efi
-RUN zpool export $POOL
+RUN zpool export "$POOL"
