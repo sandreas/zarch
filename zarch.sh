@@ -103,6 +103,7 @@ export LOCALE="$(load_env_variable LOCALE)"
 export KEYMAP="$(load_env_variable KEYMAP)"
 export CONSOLE_FONT="$(load_env_variable CONSOLE_FONT)"
 export USER_NAME="$(load_env_variable USER_NAME)"
+# maybe just read -rsp "Password: " USER_PASS
 export USER_PASS="$(load_env_variable USER_PASS)" # change after boot
 
 
@@ -203,8 +204,9 @@ pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkm
 CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
 
 # add normal user
-RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME"
-RUN arch-chroot /mnt echo "$USER_NAME:$USER_PASS" | chpasswd
+CRYPT_PASS="$(echo $USER_PASS | openssl passwd -6 -stdin)"
+RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME" -p "$CRYPT_PASS"
+# RUN arch-chroot /mnt echo "$USER_NAME:$USER_PASS" | chpasswd
 
 # bootstrap useful utilities
 echo "grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -"
