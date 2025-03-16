@@ -116,35 +116,20 @@ This can be prevented by providing your passphrase in a plaintext file, but I di
 
 ## Let's go
 
-### Clone the repository
+<span style="color:red;font-size:2em;">**⚠️WARNING: This script will wipe your disk. Only proceed if you know what you're doing.**</span>
+
 
 ```bash
-pacman -Sy git
-cd /tmp
+# install required tools
+pacman -Sy git screen vi vim
 git clone https://github.com/sandreas/zarch
 cd zarch
-```
-
-### Edit config and packages files
-
-```bash
 cp zarch.conf.sample zarch.conf
-nano zarch.conf
-# edit file to your liking
 
-# optional...
-nano pkglist.txt
-# edit file to your liking
+# vi zarch.conf, edit to your liking
+# vi pkglist.txt, edit to your liking
+# vi pkglist_aur.txt, edit to your liking
 
-nano pkglist_aur.txt
-# edit file to your liking
-```
-
-### Start installation
-
-⚠️WARNING: This script will wipe your disk. Only proceed if you know what you're doing.
-
-```bash
 ./zarch.sh
 ```
 
