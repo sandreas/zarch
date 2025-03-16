@@ -271,7 +271,6 @@ RUN arch-chroot /mnt zpool set bootfs=$POOL/ROOT/arch $POOL
 RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
 RUN arch-chroot /mnt mkdir -p /efi/EFI/zbm
 RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
-# - [ ] check EFI support as precondition
 RUN arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet" --verbose
 
 next_cmd="arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid="$(hostid)"" $POOL/ROOT"
@@ -304,9 +303,11 @@ arch-chroot /mnt /usr/bin/runuser -u "$USER_NAME" -- git clone https://aur.archl
   && cd yay-bin \
   && makepkg -si \
   && yay -Y --gendb
+CHECK_SUCCESS "$?" "runuser yay"
 
 # install aur packages via yay
 arch-chroot /mnt /usr/bin/runuser -u "$USER_NAME" -- yay -S --noconfirm --needed "$PKG_AUR_LIST"
+CHECK_SUCCESS "$?" "yay -S"
 
 RUN umount /mnt/efi
 RUN zpool export "$POOL"
