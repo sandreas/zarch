@@ -204,7 +204,7 @@ pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkm
 CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
 
 # add normal user
-CRYPT_PASS="$(echo $USER_PASS | openssl passwd -6 -stdin)"
+CRYPT_PASS="$(echo "$USER_PASS" | openssl passwd -6 -stdin)"
 RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME" -p "$CRYPT_PASS"
 # RUN arch-chroot /mnt echo "$USER_NAME:$USER_PASS" | chpasswd
 
