@@ -1,12 +1,11 @@
 #!/bin/sh
-PKG_FILE="pkglist.txt"
-PKG_AUR_FILE="pkglist_aur.txt"
-
-# read pkglist.txt and pkglist_aur.txt
-PKG_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_FILE)"
-PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_AUR_FILE)"
 
 
-echo "$PKG_LIST"
+if ! [ -d /sys/firmware/efiy ]; then
+  echo "ERROR:"
+  echo "zarch.sh does only work on modern EFI systems, you seem to use traditional BIOS"
+  exit 1
+fi
 
 
+echo "all ok"

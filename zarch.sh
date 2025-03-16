@@ -21,7 +21,7 @@ PKG_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_FILE)"
 PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_AUR_FILE)"
 
 # RUN executes and logs a command (e.g. RUN echo "test")
-function RUN() {
+RUN() {
   cmd="$@"
   # echo command before executing it (to show progress)
   echo "$cmd"
@@ -42,7 +42,7 @@ function RUN() {
 }
 
 # CHECK_SUCCESS checks the success return code of a command (e.g. CHECK_SUCCESS "$?" "echo 'test'")
-function CHECK_SUCCESS() {
+CHECK_SUCCESS() {
     returnCode="$1"
     cmd="$2"
     output="$3"
@@ -57,7 +57,7 @@ function CHECK_SUCCESS() {
     fi
 }
 
-function LOG() {
+LOG() {
   if [ "$LOG_FILE" = "" ]; then
     export LOG_FILE="$(basename $0).log"
   fi
@@ -67,12 +67,12 @@ function LOG() {
 
 # function to load .env variable by name, example:
 # load_env_variable DISK
-function load_env_variable {
+load_env_variable() {
   echo "$(grep "$1" "$CONF_FILE" | cut -d '=' -f 2 | sed "s/^[\"']\(.*\)[\"'].*$/\1/")"
   return $?
 }
 
-function yes_or_no {
+yes_or_no() {
     while true; do
         read -p "$1 [y/n]: " yn
         case $yn in
@@ -82,7 +82,7 @@ function yes_or_no {
     done
 }
 
-function countdown {
+countdown() {
   for i in $(seq $1 -1 1); do
     echo $i
     sleep 1
@@ -119,7 +119,16 @@ echo -ne "
 ███████╗██║  ██║██║  ██║╚██████╗██║  ██║
 ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
 ----------------------------------------
+"
 
+if ! [ -d /sys/firmware/efiy ]; then
+  echo "ERROR:"
+  echo "zarch.sh does only work on modern EFI systems, you seem to use traditional BIOS"
+  exit 1
+fi
+
+
+echo -ne "
 The following config has been loaded:
 
 DISK=$DISK
@@ -153,47 +162,42 @@ RUN sleep 1 # required, otherwise the pool creation fails
 
 # create ZFS pool and datasets
 # RUN not possible due to password prompt
-echo "zpool create -f -o ashift=12 ..."
-zpool create -f -o ashift=12 \
- -O compression=lz4 \
- -O acltype=posixacl \
- -O xattr=sa \
- -O relatime=off \
- -O atime=off \
- -O encryption=aes-256-gcm \
- -O keylocation=prompt \
- -O keyformat=passphrase \
- -o autotrim=on \
- -m none $POOL ${DISK}-part2
-CHECK_SUCCESS "$?" "zpool create"
+next_cmd="zpool create -f -o ashift=12 -O compression=lz4 -O acltype=posixacl -O xattr=sa -O relatime=off -O atime=off -O encryption=aes-256-gcm -O keylocation=prompt -O keyformat=passphrase -o autotrim=on -m none $POOL ${DISK}-part2"
+echo "$next_cmd"
+# autoexpect: Enter new passphrase:
+# autoexpect: Re-enter new passphrase:
+zpool create -f -o ashift=12 -O compression=lz4 -O acltype=posixacl -O xattr=sa -O relatime=off -O atime=off -O encryption=aes-256-gcm -O keylocation=prompt -O keyformat=passphrase -o autotrim=on -m none $POOL ${DISK}-part2
+CHECK_SUCCESS "$?" "$next_cmd"
 
-RUN zfs create -o mountpoint=none $POOL/ROOT
-RUN zfs create -o mountpoint=/ -o canmount=noauto $POOL/ROOT/arch
-RUN zfs create -o mountpoint=/home $POOL/home
+RUN zfs create -o mountpoint=none "$POOL/ROOT"
+RUN zfs create -o mountpoint=/ -o canmount=noauto "$POOL/ROOT/arch"
+RUN zfs create -o mountpoint=/home "$POOL/home"
 
-RUN zpool export $POOL
+RUN zpool export "$POOL"
 
-RUN zpool import -N -R /mnt $POOL
+RUN zpool import -N -R /mnt "$POOL"
 # RUN not possible due to password prompt
-echo "zfs load-key -L prompt $POOL"
-zfs load-key -L prompt $POOL
-CHECK_SUCCESS "$?" "zfs load-key -L prompt $POOL"
-RUN zfs mount $POOL/ROOT/arch
-RUN zfs mount $POOL/home
+next_cmd="zfs load-key -L prompt $POOL"
+echo "$next_cmd"
+# autoexpect: Enter passphrase for 'rpool':
+zfs load-key -L prompt "$POOL"
+CHECK_SUCCESS "$?" "$next_cmd"
+RUN zfs mount "$POOL/ROOT/arch"
+RUN zfs mount "$POOL/home"
 
 # create and mount EFI filesystem
-RUN mkfs.vfat -F 32 -n EFI $DISK-part1
+RUN mkfs.vfat -F 32 -n EFI "$DISK-part1"
 RUN mkdir /mnt/efi
-RUN mount $DISK-part1 /mnt/efi
+RUN mount "$DISK-part1" /mnt/efi
 
-# select fastest download mirror (significant improvements!)
+# select fastest download mirror (significant speed improvements!)
 iso=$(curl -4 ifconfig.co/country-iso)
-echo "pacman -Sy --noconfirm --needed reflector"
+next_cmd="pacman -Sy --noconfirm --needed reflector && reflector -a 48 -c \"$iso\" -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist"
+echo "$next_cmd"
 pacman -Sy --noconfirm --needed reflector \
     && cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak \
     && reflector -a 48 -c "$iso" -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
-
-CHECK_SUCCESS "$?" "pacman -Sy --noconfirm --needed reflector"
+CHECK_SUCCESS "$?" "$next_cmd"
 
 # enable parallel downloads (faster)
 RUN sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
@@ -239,7 +243,7 @@ RUN echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
 RUN sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' /mnt/etc/mkinitcpio.conf
 
 # configure all members of group wheel to have sudo
-RUN sed -i 's//^# %wheel ALL=(ALL:ALL) ALL$/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
+RUN sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
 
 RUN arch-chroot /mnt hwclock --systohc
 RUN arch-chroot /mnt timedatectl set-local-rtc 0
@@ -250,8 +254,13 @@ RUN arch-chroot /mnt zpool set bootfs=$POOL/ROOT/arch $POOL
 RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
 RUN arch-chroot /mnt mkdir -p /efi/EFI/zbm
 RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
-RUN arch-chroot /mnt efibootmgr --disk $DISK --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet" --verbose
-RUN arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" $POOL/ROOT
+# - [ ] check EFI support as precondition
+RUN arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet" --verbose
+
+next_cmd="arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid="$(hostid)"" $POOL/ROOT"
+echo "$next_cmd"
+RUN arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" "$POOL/ROOT"
+CHECK_SUCCESS "$?" "$next_cmd"
 
 
 # enable services based on selected install packages
@@ -274,8 +283,7 @@ done;
 
 
 # install yay as normal user
-RUN arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- cd /tmp/ \
-  && git clone https://aur.archlinux.org/yay-bin.git \
+arch-chroot /mnt /usr/bin/runuser -u $USER_NAME -- git clone https://aur.archlinux.org/yay-bin.git \
   && cd yay-bin \
   && makepkg -si \
   && yay -Y --gendb
