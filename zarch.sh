@@ -1,6 +1,15 @@
 #!/bin/sh
 # todo:
 # - [ ] make sudo work without password till end, then replace it with the passvword variant
+# echo "user ALL=(ALL) NOPASSWD: /usr/bin/yay" > /etc/sudoers.d/yay
+# check aura: https://github.com/fosskers/aura?tab=readme-ov-file#what-is-aura
+# arch-chroot -u user /mnt bash -s <<-EOF
+  #  HOME=/home/user
+  #  cd /some/dir/to/start/on
+  #  cmd1
+  #  cmd2
+  #EOF
+
 
 
 # define fix config vars
@@ -314,10 +323,11 @@ RUN arch-chroot /mnt chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME/yay-bin"
 # arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
 # CHECK_SUCCESS "$?" "$next_cmd"
 # make and install package
-RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -si
+RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -s
 
-# yay_pkg_file="$(find /mnt/home/sandreas/yay-bin/ -name 'yay-bin-*.pkg.tar.*' -not -name '*-debug-*' -exec basename {} \;)"
-# RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$yay_pkg_file"
+
+yay_pkg_file="$(find /mnt/home/sandreas/yay-bin/ -name 'yay-bin-*.pkg.tar.*' -not -name '*-debug-*' -exec basename {} \;)"
+RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$yay_pkg_file"
 
 # install aur packages via yay
 # RUN echo "$USER_NAME $HOSTNAME = NOPASSWD: /usr/bin/pacman" > /mnt/etc/sudoers.d/yay
@@ -338,9 +348,9 @@ RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -si
 # CHECK_SUCCESS "$?" "$next_cmd"
 
 # install selected packages via yay
-next_cmd="arch-chroot -u \"$USER_NAME\" /mnt yay -Sy --sudoloop --noconfirm --needed $(echo $PKG_AUR_LIST | tr '\n' ' ')"
+next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo su -c \"yay -Sy --noconfirm --needed $(echo \"$PKG_AUR_LIST\" | tr '\n' ' ')\" \"$USER_NAME\""
 echo "$next_cmd"
-arch-chroot -u "$USER_NAME" /mnt yay -Sy --sudoloop --noconfirm --needed $(echo $PKG_AUR_LIST | tr '\n' ' ')
+arch-chroot -u "$USER_NAME" /mnt sudo su -c "yay -Sy --noconfirm --needed $(echo "$PKG_AUR_LIST" | tr '\n' ' ')" "$USER_NAME"
 CHECK_SUCCESS "$?" "$next_cmd"
 
 
@@ -351,7 +361,7 @@ CHECK_SUCCESS "$?" "$next_cmd"
 #  echo $pkg
 # done;
 
-# remove sudo without password
+# remove sudo access without password
 next_cmd="sed -i '/^%wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^%wheel/# %wheel/g' /mnt/etc/sudoers"
 echo "$next_cmd"
 sed -i '/^%wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^%wheel/# %wheel/g' /mnt/etc/sudoers
