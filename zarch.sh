@@ -1,14 +1,27 @@
 #!/bin/sh
 # todo:
-# - [ ] make sudo work without password till end, then replace it with the passvword variant
-# echo "user ALL=(ALL) NOPASSWD: /usr/bin/yay" > /etc/sudoers.d/yay
-# check aura: https://github.com/fosskers/aura?tab=readme-ov-file#what-is-aura
+# - Turn off debug packages in your pacman.conf https://bbs.archlinux.org/viewtopic.php?id=293844
+# - [ ] use sed -e '/HOOKS=/a HOOKS+=(net)' -i /etc/zfsbootmenu/mkinitcpio.conf
+# - [ ] ZFSBootMenu does not boot automatically
+#   - Is arch-chroot required for ZFS commands?
+# - [ ] Default user cannot log in
+#   - Use sudo su chpasswd?
+# - [ ] Use /etc/sudoers.d/nopasswd and delete it later in favor of passwd
+# - [ ] check aura: https://github.com/fosskers/aura?tab=readme-ov-file#what-is-aura
+# - [ ] run multiple arch-chroot commands at once (see multi command example below)
+# - [ ] create subfolder profiles (./zarch.sh myprofile) with package definitions, e.g. /default/{pkglist_arch.txt,pkglist_aur.txt,services.txt}
+#   - pkglist_arch.txt: official packages
+#   - pkglist_aur.txt: aur packages
+#   - services.txt: services to enable
+# - [ ] auto-expect for password prompts?
+# - [!] use history | tail -1 instead of next_cmd => not possible, hist is disabled in scripts
+# multi command example:
 # arch-chroot -u user /mnt bash -s <<-EOF
-  #  HOME=/home/user
-  #  cd /some/dir/to/start/on
-  #  cmd1
-  #  cmd2
-  #EOF
+#  HOME=/home/user
+#  cd /some/dir/to/start/on
+#  cmd1
+#  cmd2
+# EOF
 
 
 
@@ -17,16 +30,6 @@ export CONF_FILE="zarch.conf"
 PKG_FILE="pkglist.txt"
 PKG_AUR_FILE="pkglist_aur.txt"
 
-
-# pkglist.txt can be overridden with pkglist.txt.local
-if [ -f "$PKG_FILE.local" ]; then
-  PKG_FILE="$PKG_FILE.local"
-fi
-
-# pkglist_aur.txt can be overridden with pkglist_aur.txt.local
-if [ -f "$PKG_AUR_FILE.local" ]; then
-  PKG_AUR_FILE="$PKG_AUR_FILE.local"
-fi
 
 # read pkglist.txt and pkglist_aur.txt
 PKG_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_FILE)"
@@ -187,8 +190,6 @@ RUN sleep 1 # required, otherwise the pool creation fails
 # RUN not possible due to password prompt
 next_cmd="zpool create -f -o ashift=12 -O compression=lz4 -O acltype=posixacl -O xattr=sa -O relatime=off -O atime=off -O encryption=aes-256-gcm -O keylocation=prompt -O keyformat=passphrase -o autotrim=on -m none $POOL ${DISK}-part2"
 echo "$next_cmd"
-# autoexpect: Enter new passphrase:
-# autoexpect: Re-enter new passphrase:
 zpool create -f -o ashift=12 -O compression=lz4 -O acltype=posixacl -O xattr=sa -O relatime=off -O atime=off -O encryption=aes-256-gcm -O keylocation=prompt -O keyformat=passphrase -o autotrim=on -m none $POOL ${DISK}-part2
 CHECK_SUCCESS "$?" "$next_cmd"
 
@@ -199,12 +200,14 @@ RUN zfs create -o mountpoint=/home "$POOL/home"
 RUN zpool export "$POOL"
 
 RUN zpool import -N -R /mnt "$POOL"
-# RUN not possible due to password prompt
+
+# load zfs key - RUN not possible due to password prompt
 next_cmd="zfs load-key -L prompt $POOL"
 echo "$next_cmd"
 # autoexpect: Enter passphrase for 'rpool':
 zfs load-key -L prompt "$POOL"
 CHECK_SUCCESS "$?" "$next_cmd"
+
 RUN zfs mount "$POOL/ROOT/arch"
 RUN zfs mount "$POOL/home"
 
@@ -226,28 +229,47 @@ CHECK_SUCCESS "$?" "$next_cmd"
 RUN sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
 # bootstrap base system into zfs filesystem under /mnt
-echo "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
-pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms
-CHECK_SUCCESS "$?" "pacstrap /mnt base linux-lts linux-firmware linux-lts-headers efibootmgr zfs-dkms"
+next_cmd="pacstrap /mnt base base-devel efibootmgr linux-lts linux-firmware linux-lts-headers sudo wget zfs-dkms"
+echo "$next_cmd"
+pacstrap /mnt base base-devel efibootmgr linux-lts linux-firmware linux-lts-headers sudo wget zfs-dkms
+CHECK_SUCCESS "$?" "$next_cmd"
+
+# configure all members of group wheel to have sudo without password until installation is finished
+next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers"
+echo "$next_cmd"
+sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
+CHECK_SUCCESS "$?" "$next_cmd"
 
 # add normal user
-# openssl passwd -6 -stdin seems to fail
-# get mkpasswd instead
-pacman -Sy --needed --noconfirm whois
-CRYPT_PASS="$(echo "$USER_PASS" | mkpasswd -s)"
-RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME" -p "$CRYPT_PASS"
+# non-working options:
+# - openssl passwd -6 -stdin
+# - mkpasswd -s
+# whois contains mkpasswd
+# pacman -Sy --needed --noconfirm whois
+# CRYPT_PASS="$(echo "$USER_PASS" | mkpasswd -s)"
+# RUN arch-chroot /mnt useradd -m -G wheel -s /usr/bin/zsh "$USER_NAME" -p "$CRYPT_PASS"
 # RUN arch-chroot /mnt echo "$USER_NAME:$USER_PASS" | chpasswd
+RUN arch-chroot /mnt useradd -m -G wheel -s /bin/sh "$USER_NAME"
+# the next command is a bit weird.
+# - sudo to prevent asking for user password in the first place
+# - su -c to execute a command in users context
+# - sudo chpasswd because chpasswd needs sudo context
+# there might be an easier version to achieve this
+next_cmd="arch-chroot /mnt sudo su -c \"echo \"$USER_NAME:$USER_PASS\" | sudo chpasswd\" \"$USER_NAME\""
+echo "$next_cmd"
+arch-chroot /mnt sudo su -c "echo \"$USER_NAME:$USER_PASS\" | sudo chpasswd" "$USER_NAME"
+CHECK_SUCCESS "$?" "$next_cmd"
 
 # bootstrap useful utilities
-echo "grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -"
+next_cmd="grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -"
+echo "$next_cmd"
 grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -
-CHECK_SUCCESS "$?" "grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -"
+CHECK_SUCCESS "$?" "$next_cmd"
 
 RUN cp /etc/hostid /mnt/etc
 RUN cp /etc/resolv.conf /mnt/etc
 RUN cp /etc/pacman.conf /mnt/etc/pacman.conf
 
-RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 
 # locale settings
 RUN echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than LANG - defaults the others
@@ -265,28 +287,33 @@ RUN echo "127.0.0.1   localhost" > /mnt/etc/hosts
 RUN echo "::1   localhost" >> /mnt/etc/hosts
 RUN echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
 
+
+RUN arch-chroot /mnt hwclock --systohc
+RUN arch-chroot /mnt timedatectl set-local-rtc 0
+RUN arch-chroot /mnt locale-gen
+RUN arch-chroot /mnt mkinitcpio -P
+RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
+
+
+RUN zpool set cachefile=/etc/zfs/zpool.cache "$POOL"
+RUN zpool set bootfs="$POOL/ROOT/arch" "$POOL"
+
+# configure boot environment (ZFS hooks, fstab, ZFSBootMenu EFI entry, ZFSBootMenu commandline)
 # add zfs to mkinitcpio hooks
 next_cmd="sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' /mnt/etc/mkinitcpio.conf"
 echo "$next_cmd"
 sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' /mnt/etc/mkinitcpio.conf
 CHECK_SUCCESS "$?" "$next_cmd"
 
-
-
-RUN arch-chroot /mnt hwclock --systohc
-RUN arch-chroot /mnt timedatectl set-local-rtc 0
-RUN arch-chroot /mnt locale-gen
-RUN arch-chroot /mnt mkinitcpio -P
-RUN arch-chroot /mnt zpool set cachefile=/etc/zfs/zpool.cache $POOL
-RUN arch-chroot /mnt zpool set bootfs=$POOL/ROOT/arch $POOL
-RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
-RUN arch-chroot /mnt mkdir -p /efi/EFI/zbm
+RUN arch-chroot /mnt genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
+RUN mkdir -p /mnt/efi/EFI/zbm
 RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
-RUN arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet" --verbose
+RUN efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet"
 
-next_cmd="arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid="$(hostid)"" $POOL/ROOT"
+
+next_cmd="zfs set org.zfsbootmenu:commandline=\"noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)\" \"$POOL/ROOT\""
 echo "$next_cmd"
-arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" "$POOL/ROOT"
+zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" "$POOL/ROOT"
 CHECK_SUCCESS "$?" "$next_cmd"
 
 
@@ -307,11 +334,7 @@ for pkg in $PKG_LIST; do
 done;
 
 
-# configure all members of group wheel to have sudo without password until installation is finished
-next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers"
-echo "$next_cmd"
-sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
-CHECK_SUCCESS "$?" "$next_cmd"
+
 
 # build yay package as normal user
 RUN git clone https://aur.archlinux.org/yay-bin.git "/mnt/home/$USER_NAME/yay-bin"

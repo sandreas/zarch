@@ -145,6 +145,8 @@ I would like to thank the creators of the following projects / articles making t
 - Maurizio Oliveri - [arch_on_zfs]
 - Chris Titus - [ArchTitus]
 
+Further, I can recommend the excellent [ZFSBootMenu documentation]. I also plan to extend this repository to support traditional BIOS systems via [rEFInd integration].
+
 
 [Ventoy]: https://www.ventoy.net/en/index.html
 [USB flash installation medium]: https://wiki.archlinux.org/title/USB_flash_installation_medium
@@ -153,3 +155,6 @@ I would like to thank the creators of the following projects / articles making t
 [ArchTitus]: https://github.com/ChrisTitusTech/ArchTitus/
 [Install Arch Linux on an encrypted zpool with ZFSBootMenu]: https://web.archive.org/web/20250228214144/https://florianesser.ch/posts/20220714-arch-install-zbm/
 [arch_on_zfs]: https://gist.github.com/Soulsuke/6a7d1f09f7fef968a2f32e0ff32a5c4c
+
+[ZFSBootMenu documentation]: https://docs.zfsbootmenu.org/
+[rEFInd integration]: https://docs.zfsbootmenu.org/en/v3.0.x/general/uefi-booting.html#id2
