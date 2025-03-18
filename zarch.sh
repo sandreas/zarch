@@ -107,6 +107,21 @@ countdown() {
   done;
 }
 
+append_text_to_file() {
+  content="$1"
+  file="$2"
+  truncate="$3"
+
+  if [ "$truncate" = "truncate" ]; then
+      true > "$file"
+  fi
+
+  next_cmd="echo $content > $file"
+  echo "$next_cmd"
+  echo "$content" >> "$file"
+  CHECK_SUCCESS "$?" "$next_cmd"
+}
+
 # .env file must exist, otherwise exit
 if ! [ -f "$CONF_FILE" ]; then
   echo "please create a file called '$CONF_FILE' in the current directory"
@@ -273,21 +288,18 @@ RUN cp /etc/pacman.conf /mnt/etc/pacman.conf
 RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 
 # locale settings
-RUN echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than LANG - defaults the others
+append_text_to_file "LANG=$LOCALE" /mnt/etc/locale.conf "truncate"    # no need to define more than LANG - defaults the others
 RUN sed -i "s/^#$LOCALE/$LOCALE/g" /mnt/etc/locale.gen
-RUN echo "KEYMAP=$KEYMAP" > /mnt/etc/vconsole.conf
+append_text_to_file "KEYMAP=$KEYMAP" /mnt/etc/vconsole.conf "truncate"
+[ "$CONSOLE_FONT" = "" ] || append_text_to_file "FONT=$CONSOLE_FONT" /mnt/etc/vconsole.conf
+append_text_to_file "$HOSTNAME" /mnt/etc/hostname "truncate"
 
-[ "$CONSOLE_FONT" = "" ] || RUN echo "FONT=$CONSOLE_FONT" >> /mnt/etc/vconsole.conf
-
-
-RUN echo "$HOSTNAME" > /mnt/etc/hostname
-
-RUN echo "# Static table lookup for hostnames." > /mnt/etc/hosts
-RUN echo "# See hosts(5) for details." >> /mnt/etc/hosts
-RUN echo "127.0.0.1   localhost" > /mnt/etc/hosts
-RUN echo "::1   localhost" >> /mnt/etc/hosts
-RUN echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
-
+# create /etc/hosts
+append_text_to_file "# Static table lookup for hostnames." /mnt/etc/hosts "truncate"
+append_text_to_file "# See hosts(5) for details." /mnt/etc/hosts
+append_text_to_file "127.0.0.1   localhost" /mnt/etc/hosts
+append_text_to_file "::1   localhost" /mnt/etc/hosts
+append_text_to_file "127.0.1.1   $HOSTNAME" /mnt/etc/hosts
 
 
 # configure boot environment (ZFS hooks, fstab, ZFSBootMenu EFI entry, ZFSBootMenu commandline)
