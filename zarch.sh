@@ -270,6 +270,7 @@ RUN cp /etc/hostid /mnt/etc
 RUN cp /etc/resolv.conf /mnt/etc
 RUN cp /etc/pacman.conf /mnt/etc/pacman.conf
 
+RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 
 # locale settings
 RUN echo "LANG=$LOCALE" > /mnt/etc/locale.conf     # no need to define more than LANG - defaults the others
@@ -288,15 +289,6 @@ RUN echo "::1   localhost" >> /mnt/etc/hosts
 RUN echo "127.0.1.1   $HOSTNAME" >> /mnt/etc/hosts
 
 
-RUN arch-chroot /mnt hwclock --systohc
-RUN arch-chroot /mnt timedatectl set-local-rtc 0
-RUN arch-chroot /mnt locale-gen
-RUN arch-chroot /mnt mkinitcpio -P
-RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
-
-
-RUN zpool set cachefile=/etc/zfs/zpool.cache "$POOL"
-RUN zpool set bootfs="$POOL/ROOT/arch" "$POOL"
 
 # configure boot environment (ZFS hooks, fstab, ZFSBootMenu EFI entry, ZFSBootMenu commandline)
 # add zfs to mkinitcpio hooks
@@ -305,16 +297,22 @@ echo "$next_cmd"
 sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' /mnt/etc/mkinitcpio.conf
 CHECK_SUCCESS "$?" "$next_cmd"
 
-RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
-# RUN arch-chroot /mnt genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
-RUN mkdir -p /mnt/efi/EFI/zbm
+
+
+RUN arch-chroot /mnt hwclock --systohc
+RUN arch-chroot /mnt timedatectl set-local-rtc 0
+RUN arch-chroot /mnt locale-gen
+RUN arch-chroot /mnt mkinitcpio -P
+RUN arch-chroot /mnt zpool set cachefile=/etc/zfs/zpool.cache "$POOL"
+RUN arch-chroot /mnt zpool set bootfs="$POOL/ROOT/arch" "$POOL"
+RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
+RUN arch-chroot /mnt mkdir -p /efi/EFI/zbm
 RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
-RUN efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet"
+RUN arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet"
 
-
-next_cmd="zfs set org.zfsbootmenu:commandline=\"noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)\" \"$POOL/ROOT\""
+next_cmd="arch-chroot /mnt zfs set org.zfsbootmenu:commandline=\"noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)\" \"$POOL/ROOT\""
 echo "$next_cmd"
-zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" "$POOL/ROOT"
+arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)" "$POOL/ROOT"
 CHECK_SUCCESS "$?" "$next_cmd"
 
 
