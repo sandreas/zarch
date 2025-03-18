@@ -305,7 +305,8 @@ echo "$next_cmd"
 sed -i '/^HOOKS=/s/block filesystems/block zfs filesystems/g' /mnt/etc/mkinitcpio.conf
 CHECK_SUCCESS "$?" "$next_cmd"
 
-RUN arch-chroot /mnt genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
+RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
+# RUN arch-chroot /mnt genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 RUN mkdir -p /mnt/efi/EFI/zbm
 RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
 RUN efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet"
