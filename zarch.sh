@@ -1,12 +1,19 @@
 #!/bin/sh
+# pacman -Sy --noconfirm --needed refind
+# refind-install --usedefault "$DISK-part1"
+# "Boot default"  "zbm.prefer=zroot ro quiet loglevel=0 zbm.skip"
+# "Boot to menu"  "zbm.prefer=zroot ro quiet loglevel=0 zbm.show"
+
 # todo:
-# - Turn off debug packages in your pacman.conf https://bbs.archlinux.org/viewtopic.php?id=293844
+# - [ ] zrepl default config
+# - [ ] Turn off debug packages in your pacman.conf https://bbs.archlinux.org/viewtopic.php?id=293844
+# - [x] set root password
 # - [ ] use sed -e '/HOOKS=/a HOOKS+=(net)' -i /etc/zfsbootmenu/mkinitcpio.conf
 # - [ ] ZFSBootMenu does not boot automatically
 #   - Is arch-chroot required for ZFS commands?
 # - [ ] Default user cannot log in
 #   - Use sudo su chpasswd?
-# - [ ] Use /etc/sudoers.d/nopasswd and delete it later in favor of passwd
+# - [x] Use /etc/sudoers.d/nopasswd and delete it later in favor of passwd
 # - [ ] check aura: https://github.com/fosskers/aura?tab=readme-ov-file#what-is-aura
 # - [ ] run multiple arch-chroot commands at once (see multi command example below)
 # - [ ] create subfolder profiles (./zarch.sh myprofile) with package definitions, e.g. /default/{pkglist_arch.txt,pkglist_aur.txt,services.txt}
@@ -25,15 +32,20 @@
 
 
 
-# define fix config vars
-export CONF_FILE="zarch.conf"
-PKG_FILE="pkglist.txt"
-PKG_AUR_FILE="pkglist_aur.txt"
+PROFILE="$1"
 
+if [ "$PROFILE" = "" ] || ! [ -d "$PROFILE" ] || ! [ -f "$PROFILE/archpkg.txt" ]; then
+  echo "You must specify a profile directory containing archpkg.txt, aurpkg.txt, services.txt and zarch.conf"
+  exit 1
+fi
+
+PKG_FILE="$PROFILE/archpkg.txt"
+PKG_AUR_FILE="$PROFILE/aurpkg.txt"
+export CONF_FILE="$PROFILE/zarch.conf"
 
 # read pkglist.txt and pkglist_aur.txt
-PKG_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_FILE)"
-PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' $PKG_AUR_FILE)"
+PKG_LIST="$(grep -v '^\s*$\|^\s*#' "$PKG_FILE")"
+PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' "$PKG_AUR_FILE")"
 
 # RUN executes and logs a command (e.g. RUN echo "test")
 RUN() {
@@ -80,17 +92,42 @@ LOG() {
   echo "$1" >> "$LOG_FILE"
 }
 
+READ_USER_INPUT() {
+  message="$1"
+  confirm="$2"
+  additonal_flags="$3"
+  failed_confirm_message=""
+  while true; do
+    read $additonal_flags -p "$failed_confirm_message $message" var_name
+
+    if [ "$confirm" = "" ]; then
+      break
+    fi
+    read $additonal_flags -p "$confirm" var_name_confirm
+
+    if [ "$var_name" = "$var_name_confirm" ]; then
+      break
+    fi
+
+    failed_confirm_message="
+    passwords did not match, please try again!
+    "
+  done
+  echo "$var_name"
+  return 0
+}
+
 
 # function to load .env variable by name, example:
 # load_env_variable DISK
-load_env_variable() {
+LOAD_CONF_VARIABLE() {
   variable="$(grep "$1" "$CONF_FILE" | cut -d '=' -f 2 | sed "s/^[\"']\(.*\)[\"'].*$/\1/")"
   return_value="$?"
   echo "$variable"
   return "$return_value"
 }
 
-yes_or_no() {
+YES_OR_NO() {
     while true; do
         read -p "$1 [y/n]: " yn
         case $yn in
@@ -100,14 +137,14 @@ yes_or_no() {
     done
 }
 
-countdown() {
+COUNTDOWN() {
   for i in $(seq $1 -1 1); do
     echo $i
     sleep 1
   done;
 }
 
-append_text_to_file() {
+APPEND_TEXT_TO_FILE() {
   content="$1"
   file="$2"
   truncate="$3"
@@ -124,30 +161,61 @@ append_text_to_file() {
 
 # .env file must exist, otherwise exit
 if ! [ -f "$CONF_FILE" ]; then
-  echo "please create a file called '$CONF_FILE' in the current directory"
+  echo "please create a file called '$CONF_FILE' in the profile directory $PROFILE/"
   exit 1
 fi
 
 export DISK
-DISK="$(load_env_variable DISK)"
+DISK="$(LOAD_CONF_VARIABLE DISK)"
 export POOL
-POOL="$(load_env_variable POOL)"
+POOL="$(LOAD_CONF_VARIABLE POOL)"
 export HOSTNAME
-HOSTNAME="$(load_env_variable HOSTNAME)"
+HOSTNAME="$(LOAD_CONF_VARIABLE HOSTNAME)"
 export TIMEZONE
-TIMEZONE="$(load_env_variable TIMEZONE)"
+TIMEZONE="$(LOAD_CONF_VARIABLE TIMEZONE)"
 export LOCALE
-LOCALE="$(load_env_variable LOCALE)"
+LOCALE="$(LOAD_CONF_VARIABLE LOCALE)"
 export KEYMAP
-KEYMAP="$(load_env_variable KEYMAP)"
+KEYMAP="$(LOAD_CONF_VARIABLE KEYMAP)"
 export CONSOLE_FONT
-CONSOLE_FONT="$(load_env_variable CONSOLE_FONT)"
+CONSOLE_FONT="$(LOAD_CONF_VARIABLE CONSOLE_FONT)"
 export USER_NAME
-USER_NAME="$(load_env_variable USER_NAME)"
+USER_NAME="$(LOAD_CONF_VARIABLE USER_NAME)"
 # maybe just read -rsp "Password: " USER_PASS
 export USER_PASS
-USER_PASS="$(load_env_variable USER_PASS)" # change after boot
+USER_PASS="$(LOAD_CONF_VARIABLE USER_PASS)"
+export ROOT_PASS
+ROOT_PASS="$(LOAD_CONF_VARIABLE ROOT_PASS)"
 
+if ! [ -d /sys/firmware/efi ]; then
+  echo "ERROR:"
+  echo "zarch.sh does only work on modern EFI systems, you seem to use traditional BIOS"
+  exit 1
+fi
+
+if [ "$USER_NAME" = "" ]; then
+  USER_NAME="$(READ_USER_INPUT "
+  Please provide a default username:
+  " "
+  Please confirm the default username:
+  ")"
+fi
+
+if [ "$USER_PASS" = "" ]; then
+  USER_PASS="$(READ_USER_INPUT "
+  Please provide a password for $USER_NAME:
+  " "
+  Please confirm the password for $USER_NAME:
+  " "-s")"
+fi
+
+if [ "$ROOT_PASS" = "" ]; then
+  ROOT_PASS="$(READ_USER_INPUT "
+  Please provide a password for user root:
+  " "
+  Please confirm the password for user root:
+  " "-s")"
+fi
 
 
 # Logo generated by https://patorjk.com/software/taag/#p=display&f=ANSI%20Shadow&t=ZARCH
@@ -163,11 +231,6 @@ printf "
 ----------------------------------------
 "
 
-if ! [ -d /sys/firmware/efi ]; then
-  echo "ERROR:"
-  echo "zarch.sh does only work on modern EFI systems, you seem to use traditional BIOS"
-  exit 1
-fi
 
 
 printf "The following config has been loaded:
@@ -179,15 +242,16 @@ TIMEZONE=%s
 LOCALE=%s
 CONSOLE_FONT=%s
 USER_NAME=%s
-USER_PASS=%s
+USER_PASS=*****
+ROOT_PASS=*****
 
 WARNING: If you proceed, your disk %s
 will be COMPLETELY wiped and reformatted.
-" "$DISK" "$POOL" "$HOSTNAME" "$TIMEZONE" "$LOCALE" "$CONSOLE_FONT" "$USER_NAME" "$USER_PASS" "$DISK"
-yes_or_no "Are you sure?" || exit 0
+" "$DISK" "$POOL" "$HOSTNAME" "$TIMEZONE" "$LOCALE" "$CONSOLE_FONT" "$USER_NAME" "$DISK"
+YES_OR_NO "Are you sure?" || exit 0
 
 echo "ok, let's go in"
-countdown 5
+COUNTDOWN 5
 
 
 # start script
@@ -275,6 +339,11 @@ echo "$next_cmd"
 arch-chroot /mnt sudo su -c "echo \"$USER_NAME:$USER_PASS\" | sudo chpasswd" "$USER_NAME"
 CHECK_SUCCESS "$?" "$next_cmd"
 
+next_cmd="arch-chroot /mnt sudo su -c \"echo \"root:$ROOT_PASS\" | sudo chpasswd\" \"root\""
+echo "$next_cmd"
+arch-chroot /mnt sudo su -c "echo \"root:$ROOT_PASS\" | sudo chpasswd" "root"
+CHECK_SUCCESS "$?" "$next_cmd"
+
 # bootstrap useful utilities
 next_cmd="grep -v '^\s*$\|^\s*#' $PKG_FILE | pacstrap /mnt -"
 echo "$next_cmd"
@@ -288,18 +357,18 @@ RUN cp /etc/pacman.conf /mnt/etc/pacman.conf
 RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 
 # locale settings
-append_text_to_file "LANG=$LOCALE" /mnt/etc/locale.conf "truncate"    # no need to define more than LANG - defaults the others
+APPEND_TEXT_TO_FILE "LANG=$LOCALE" /mnt/etc/locale.conf "truncate"    # no need to define more than LANG - defaults the others
 RUN sed -i "s/^#$LOCALE/$LOCALE/g" /mnt/etc/locale.gen
-append_text_to_file "KEYMAP=$KEYMAP" /mnt/etc/vconsole.conf "truncate"
-[ "$CONSOLE_FONT" = "" ] || append_text_to_file "FONT=$CONSOLE_FONT" /mnt/etc/vconsole.conf
-append_text_to_file "$HOSTNAME" /mnt/etc/hostname "truncate"
+APPEND_TEXT_TO_FILE "KEYMAP=$KEYMAP" /mnt/etc/vconsole.conf "truncate"
+[ "$CONSOLE_FONT" = "" ] || APPEND_TEXT_TO_FILE "FONT=$CONSOLE_FONT" /mnt/etc/vconsole.conf
+APPEND_TEXT_TO_FILE "$HOSTNAME" /mnt/etc/hostname "truncate"
 
 # create /etc/hosts
-append_text_to_file "# Static table lookup for hostnames." /mnt/etc/hosts "truncate"
-append_text_to_file "# See hosts(5) for details." /mnt/etc/hosts
-append_text_to_file "127.0.0.1   localhost" /mnt/etc/hosts
-append_text_to_file "::1   localhost" /mnt/etc/hosts
-append_text_to_file "127.0.1.1   $HOSTNAME" /mnt/etc/hosts
+APPEND_TEXT_TO_FILE "# Static table lookup for hostnames." /mnt/etc/hosts "truncate"
+APPEND_TEXT_TO_FILE "# See hosts(5) for details." /mnt/etc/hosts
+APPEND_TEXT_TO_FILE "127.0.0.1   localhost" /mnt/etc/hosts
+APPEND_TEXT_TO_FILE "::1   localhost" /mnt/etc/hosts
+APPEND_TEXT_TO_FILE "127.0.1.1   $HOSTNAME" /mnt/etc/hosts
 
 
 # configure boot environment (ZFS hooks, fstab, ZFSBootMenu EFI entry, ZFSBootMenu commandline)

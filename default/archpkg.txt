@@ -1,5 +1,5 @@
+# basic utils
 git
-inetutils
 man
 nano
 networkmanager
@@ -11,8 +11,6 @@ wget
 zsh
 
 gnome
-
-base-devel
 bat
 btop
 difftastic
@@ -23,7 +21,6 @@ fd
 ffmpeg
 fzf
 gdu
-git
 hugo
 inetutils
 jless
@@ -31,12 +28,11 @@ jq
 less
 lsof
 mediainfo
-# ncdu
+ncdu
 openbsd-netcat
 php
 xdebug
 powertop
-python-virtualenv
 rclone
 restic
 ripgrep
@@ -53,14 +49,12 @@ zoxide
 zsh
 
 # GUI apps
-blender
-# element-desktop
-gimp
+# blender
+# gimp
+gnome-extra
 gnome-tweaks
-keepassxc
-# librewolf
-remmina
+# keepassxc
+# remmina
 signal-desktop
-timeshift
 sushi
 vlc
