@@ -3,10 +3,12 @@
 # https://github.com/archlinux/archinstall/issues/107#issuecomment-841701968
 # arch-chroot does not support localectl
 # maybe with systemd-nspawn as user or root?
-# systemd-nspawn --machine=setup_container --hostname=$HOSTNAME --directory /mnt
-# machinectl shell $USER_NAME@setup_container localectl set-keymap ""
-# machinectl shell $USER_NAME@setup_container localectl set-keymap "$KEYMAP"
-# machinectl shell $USER_NAME@setup_container localectl localectl --no-ask-password set-locale LANG="$LOCALE" LC_TIME="$LOCALE"
+# CONTAINER_NAME="setupcontainer"
+# systemd-nspawn --boot --machine=$CONTAINER_NAME --hostname=$HOSTNAME --directory /mnt
+# interesting options: --user
+# machinectl shell $USER_NAME@$CONTAINER_NAME localectl set-keymap ""
+# machinectl shell $USER_NAME@$CONTAINER_NAME localectl set-keymap "$KEYMAP"
+# machinectl shell $USER_NAME@$CONTAINER_NAME localectl localectl --no-ask-password set-locale LANG="$LOCALE" LC_TIME="$LOCALE"
 
 # pacman -Sy --noconfirm --needed refind
 # refind-install --usedefault "$DISK-part1"
@@ -574,6 +576,30 @@ next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/s
 echo "$next_cmd"
 sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
 CHECK_SUCCESS "$?" "$next_cmd"
+
+
+# CONTAINER_NAME="setupcontainer"
+# systemd-run --unit=setupcontainer --scope systemd-nspawn -D /mnt
+# systemd-run --machine=setupcontainer /bin/bash -c "touch /test.txt"
+# systemd-nspawn --boot --machine=$CONTAINER_NAME --hostname="$HOSTNAME" --directory /mnt &
+# interesting options: --user
+
+#systemd-run --machine=setupcontainer --scope systemd-nspawn --pty /bin/bash -c "localectl set-keymap 'de'"
+#systemd-nspawn -D /mnt /bin/bash -c "localectl set-keymap ''"
+#systemd-nspawn -D /mnt &
+
+# this works
+#nohup systemd-nspawn --machine=setupcontainer -D /mnt  0<&- &>/dev/null &
+#systemd-run --machine=setupcontainer --pty /bin/bash -c "localectl set-keymap 'de'"
+#machinectl poweroff setupcontainer
+
+# this might work
+# systemd-nspawn --pty -D /mnt /bin/bash -c "localectl set-keymap ''"
+
+# machinectl shell $USER_NAME@$CONTAINER_NAME localectl set-keymap ""
+# machinectl shell $USER_NAME@$CONTAINER_NAME localectl set-keymap "$KEYMAP"
+# machinectl shell $USER_NAME@$CONTAINER_NAME localectl localectl --no-ask-password set-locale LANG="$LOCALE" LC_TIME="$LOCALE"
+
 
 RUN umount /mnt/efi
 RUN zpool export "$POOL"
