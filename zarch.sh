@@ -366,6 +366,13 @@ echo "$next_cmd"
 sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
 CHECK_SUCCESS "$?" "$next_cmd"
 
+RUN arch-chroot /mnt timedatectl set-local-rtc 0
+RUN arch-chroot /mnt timedatectl set-ntp 1
+RUN arch-chroot /mnt hwclock --systohc
+RUN arch-chroot /mnt ln -s "/usr/share/zoneinfo/${TIMEZONE}" /etc/localtime
+RUN arch-chroot /mnt localectl set-locale LANG="$LOCALE" # LC_TIME="$LOCALE" (LANG DOES OVERRIDE FOR ALL)
+RUN arch-chroot /mnt localectl set-keymap "${KEYMAP}"
+
 # add normal user
 # non-working options:
 # - openssl passwd -6 -stdin
@@ -408,10 +415,11 @@ RUN cp /etc/pacman.conf /mnt/etc/pacman.conf
 RUN genfstab /mnt | grep 'LABEL=EFI' -A 1 > /mnt/etc/fstab
 
 # locale settings
-APPEND_TEXT_TO_FILE "LANG=$LOCALE" /mnt/etc/locale.conf "truncate"    # no need to define more than LANG - defaults the others
-RUN sed -i "s/^#$LOCALE/$LOCALE/g" /mnt/etc/locale.gen
-APPEND_TEXT_TO_FILE "KEYMAP=$KEYMAP" /mnt/etc/vconsole.conf "truncate"
-[ "$CONSOLE_FONT" = "" ] || APPEND_TEXT_TO_FILE "FONT=$CONSOLE_FONT" /mnt/etc/vconsole.conf
+# APPEND_TEXT_TO_FILE "LANG=$LOCALE" /mnt/etc/locale.conf "truncate"    # no need to define more than LANG - defaults the others
+# RUN sed -i "s/^#$LOCALE/$LOCALE/g" /mnt/etc/locale.gen
+# APPEND_TEXT_TO_FILE "KEYMAP=$KEYMAP" /mnt/etc/vconsole.conf "truncate"
+# [ "$CONSOLE_FONT" = "" ] || APPEND_TEXT_TO_FILE "FONT=$CONSOLE_FONT" /mnt/etc/vconsole.conf
+
 APPEND_TEXT_TO_FILE "$HOSTNAME" /mnt/etc/hostname "truncate"
 
 # create /etc/hosts
@@ -431,8 +439,6 @@ CHECK_SUCCESS "$?" "$next_cmd"
 
 
 
-RUN arch-chroot /mnt hwclock --systohc
-RUN arch-chroot /mnt timedatectl set-local-rtc 0
 RUN arch-chroot /mnt locale-gen
 RUN arch-chroot /mnt mkinitcpio -P
 RUN arch-chroot /mnt zpool set cachefile=/etc/zfs/zpool.cache "$POOL"
