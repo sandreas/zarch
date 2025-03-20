@@ -1,10 +1,56 @@
 #!/bin/sh
+
+# https://github.com/archlinux/archinstall/issues/107#issuecomment-841701968
+# arch-chroot does not support localectl
+# maybe with systemd-nspawn as user or root?
+# systemd-nspawn --machine=setup_container --hostname=$HOSTNAME --directory /mnt
+# machinectl shell $USER_NAME@setup_container localectl set-keymap ""
+# machinectl shell $USER_NAME@setup_container localectl set-keymap "$KEYMAP"
+# machinectl shell $USER_NAME@setup_container localectl localectl --no-ask-password set-locale LANG="$LOCALE" LC_TIME="$LOCALE"
+
 # pacman -Sy --noconfirm --needed refind
 # refind-install --usedefault "$DISK-part1"
 # "Boot default"  "zbm.prefer=zroot ro quiet loglevel=0 zbm.skip"
 # "Boot to menu"  "zbm.prefer=zroot ro quiet loglevel=0 zbm.show"
 
+# keymap
+# systemd-run --machine=$USER_NAME@.host --pty localectl set-keymap ""
+# localectl set-keymap de-latin1-nodeadkeys
+# gsettings set org.gnome.desktop.input-sources sources "[('xkb', 'us')]"
+
+# man systemd-run
+#-M, --machine=
+#           Execute operation on a local container. Specify a container name to connect to, optionally prefixed by a user name to connect as and a separating "@" character. If the special string ".host"
+#           is used in place of the container name, a connection to the local system is made (which is useful to connect to a specific user's user bus: "--user --machine=lennart@.host"). If the "@"
+#           syntax is not used, the connection is made as root user. If the "@" syntax is used either the left hand side or the right hand side may be omitted (but not both) in which case the local user
+#           name and ".host" are implied.
+
 # todo:
+
+
+
+# https://unix.stackexchange.com/questions/75519/how-to-set-default-console-keyboard-layout-in-arch-linux
+# loadkeys de - error: https://www.delftstack.com/howto/linux/bash-couldnt-get-a-file-descriptor-referring-to-the-console-error/
+# - reset makes `loadkeys de` possible
+# sudo machinectl shell --uid=youruser
+# DISPLAY=:0 gsettings set org.gnome.desktop.input-sources mru-sources "[('xkb', 'us')]"
+
+
+# timedatectl --no-ask-password set-ntp 1
+# localectl --no-ask-password set-locale LANG="$LOCALE" LC_TIME="$LOCALE"
+# ln -s /usr/share/zoneinfo/${TIMEZONE} /etc/localtime
+# Set keymaps
+# localectl --no-ask-password set-keymap ${KEYMAP}
+
+
+# vconsole.conf
+# XKBLAYOUT=de
+  #XKBMODEL=pc105
+  #XKBVARIANT=nodeadkeys
+  #XKBOPTIONS=terminate:ctrl_alt_bksp
+# ./X11/xorg.conf.d/00-keyboard.conf:        Option "XkbLayout" "de"
+# ./vconsole.conf:KEYMAP=de-latin1-nodeadkeys
+# ./vconsole.conf:XKBLAYOUT=de
 # - [ ] zrepl default config
 # - [ ] Turn off debug packages in your pacman.conf https://bbs.archlinux.org/viewtopic.php?id=293844
 # - [x] set root password
@@ -42,10 +88,6 @@ fi
 PKG_FILE="$PROFILE/archpkg.txt"
 PKG_AUR_FILE="$PROFILE/aurpkg.txt"
 export CONF_FILE="$PROFILE/zarch.conf"
-
-# read pkglist.txt and pkglist_aur.txt
-PKG_LIST="$(grep -v '^\s*$\|^\s*#' "$PKG_FILE")"
-PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' "$PKG_AUR_FILE")"
 
 # RUN executes and logs a command (e.g. RUN echo "test")
 RUN() {
@@ -229,11 +271,7 @@ printf "
 ███████╗██║  ██║██║  ██║╚██████╗██║  ██║
 ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
 ----------------------------------------
-"
-
-
-
-printf "The following config has been loaded:
+The following config has been loaded:
 
 DISK=%s
 POOL=%s
@@ -255,6 +293,7 @@ COUNTDOWN 5
 
 
 # start script
+
 
 # generate /etc/hostid (required by zfs)
 [ -f /etc/hostid ] || RUN zgenhostid
@@ -289,6 +328,12 @@ CHECK_SUCCESS "$?" "$next_cmd"
 
 RUN zfs mount "$POOL/ROOT/arch"
 RUN zfs mount "$POOL/home"
+
+echo "######################################################"
+echo "### OK, you're done, no more interaction required. ###"
+echo "######################################################"
+COUNTDOWN 3
+
 
 # create and mount EFI filesystem
 RUN mkfs.vfat -F 32 -n EFI "$DISK-part1"
@@ -334,14 +379,18 @@ RUN arch-chroot /mnt useradd -m -G wheel -s /bin/sh "$USER_NAME"
 # - su -c to execute a command in users context
 # - sudo chpasswd because chpasswd needs sudo context
 # there might be an easier version to achieve this
-next_cmd="arch-chroot /mnt sudo su -c \"echo \"$USER_NAME:$USER_PASS\" | sudo chpasswd\" \"$USER_NAME\""
+next_cmd="arch-chroot /mnt sudo su -c [...] $USER_NAME:***** | sudo chpasswd"
 echo "$next_cmd"
-arch-chroot /mnt sudo su -c "echo \"$USER_NAME:$USER_PASS\" | sudo chpasswd" "$USER_NAME"
+arch-chroot /mnt sudo su -c "cat << EOF | sudo chpasswd
+$USER_NAME:$USER_PASS
+EOF"
 CHECK_SUCCESS "$?" "$next_cmd"
 
-next_cmd="arch-chroot /mnt sudo su -c \"echo \"root:$ROOT_PASS\" | sudo chpasswd\" \"root\""
+next_cmd="arch-chroot /mnt sudo su -c [...] root:***** | sudo chpasswd"
 echo "$next_cmd"
-arch-chroot /mnt sudo su -c "echo \"root:$ROOT_PASS\" | sudo chpasswd" "root"
+arch-chroot /mnt sudo su -c "cat << EOF | sudo chpasswd
+root:$ROOT_PASS
+EOF"
 CHECK_SUCCESS "$?" "$next_cmd"
 
 # bootstrap useful utilities
@@ -397,26 +446,10 @@ arch-chroot /mnt zfs set org.zfsbootmenu:commandline="noresume init_on_alloc=0 r
 CHECK_SUCCESS "$?" "$next_cmd"
 
 
-# enable services based on selected install packages
-# exact word match is required, so no * is used in case
-for pkg in $PKG_LIST; do
-  s=""
-  case "$pkg" in
-    networkmanager)
-      s="NetworkManager"
-      ;;
-    gnome)
-      s="gdm"
-      ;;
-  esac
-
-  [ "$s" = "" ] || RUN arch-chroot /mnt systemctl enable "$s"
-done;
-
-
 
 
 # build yay package as normal user
+RUN pacman -Sy --noconfirm --needed git
 RUN git clone https://aur.archlinux.org/yay-bin.git "/mnt/home/$USER_NAME/yay-bin"
 RUN arch-chroot /mnt chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME/yay-bin"
 
@@ -429,7 +462,7 @@ RUN arch-chroot /mnt chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME/yay-bin"
 RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -s
 
 
-yay_pkg_file="$(find /mnt/home/sandreas/yay-bin/ -name 'yay-bin-*.pkg.tar.*' -not -name '*-debug-*' -exec basename {} \;)"
+yay_pkg_file="$(find "/mnt/home/$USER_NAME/yay-bin/" -name 'yay-bin-*.pkg.tar.*' -not -name '*-debug-*' -exec basename {} \;)"
 RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$yay_pkg_file"
 
 # install aur packages via yay
@@ -450,7 +483,20 @@ RUN arch-chroot /mnt pacman -U --noconfirm --needed "/home/$USER_NAME/yay-bin/$y
 # arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
 # CHECK_SUCCESS "$?" "$next_cmd"
 
+# CHROOT_PKG_AUR_FILE="/home/$USER_NAME/yay.txt"
+# next_cmd="grep -v '^\s*$\|^\s*#' \"$PKG_AUR_FILE\" > \"/mnt$CHROOT_PKG_AUR_FILE\""
+# echo "$next_cmd"
+# grep -v '^\s*$\|^\s*#' "$PKG_AUR_FILE" > "/mnt$CHROOT_PKG_AUR_FILE"
+# CHECK_SUCCESS "$?" "$next_cmd"
+
 # install selected packages via yay
+# next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo su -c \"yay -Sy --noconfirm --needed $(cat "$CHROOT_PKG_AUR_FILE")\" \"$USER_NAME\""
+# echo "$next_cmd"
+# arch-chroot -u "$USER_NAME" /mnt sudo su -c "yay -Sy --noconfirm --needed $(cat "$CHROOT_PKG_AUR_FILE")" "$USER_NAME"
+# CHECK_SUCCESS "$?" "$next_cmd"
+
+# old way: install selected packages via yay
+PKG_AUR_LIST="$(grep -v '^\s*$\|^\s*#' "$PKG_AUR_FILE")"
 next_cmd="arch-chroot -u \"$USER_NAME\" /mnt sudo su -c \"yay -Sy --noconfirm --needed $(echo \"$PKG_AUR_LIST\" | tr '\n' ' ')\" \"$USER_NAME\""
 echo "$next_cmd"
 arch-chroot -u "$USER_NAME" /mnt sudo su -c "yay -Sy --noconfirm --needed $(echo "$PKG_AUR_LIST" | tr '\n' ' ')" "$USER_NAME"
@@ -463,6 +509,59 @@ CHECK_SUCCESS "$?" "$next_cmd"
 # for pkg in $PKG_AUR_LIST; do
 #  echo $pkg
 # done;
+
+# create basic zrepl.yml for zfs auto snapshotting
+RUN mkdir -p /mnt/etc/zrepl/
+next_cmd="cat <<EOF > /mnt/etc/zrepl/zrepl.yml"
+echo "$next_cmd"
+cat <<EOF > /mnt/etc/zrepl/zrepl.yml
+global:
+  logging:
+    - type: syslog
+      format: human
+      level: warn
+
+jobs:
+# this job takes care of snapshot creation + pruning
+- name: snapjob
+  type: snap
+  filesystems: {
+      "rpool<": true,
+  }
+  # create snapshots with prefix zrepl_ every 15 minutes
+  snapshotting:
+    type: periodic
+    interval: 15m
+    prefix: zrepl_
+    timestamp_format: human
+  pruning:
+    keep:
+    - type: grid
+      grid: 1x1h(keep=4) | 24x1h(keep=1) | 7x1d(keep=1) | 4x1w(keep=1) | 12x4w(keep=1) | 1x53w(keep=1)
+      regex: "^zrepl_.*"
+    # keep all snapshots that don't have the zrepl_ prefix
+    - type: regex
+      negate: true
+      regex: "^zrepl_.*"
+
+EOF
+CHECK_SUCCESS "$?" "$next_cmd"
+
+# enable services
+SERVICES_FILE="$PROFILE/services.txt"
+OLD_IFS="$IFS"
+IFS=''
+grep -v '^\s*$\|^\s*#' "$SERVICES_FILE" |
+while read -r s; do
+  next_cmd="arch-chroot /mnt systemctl enable $s"
+  echo "$next_cmd"
+  arch-chroot /mnt systemctl enable "$s"
+  if ! [ "$?" = "0" ]; then
+    echo "WARNING! Could not enable service $s"
+    echo "Either the service was not found or you have to enable it manually"
+  fi
+done
+IFS="$OLD_IFS"
 
 # remove sudo access without password
 next_cmd="sed -i '/^%wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^%wheel/# %wheel/g' /mnt/etc/sudoers"
