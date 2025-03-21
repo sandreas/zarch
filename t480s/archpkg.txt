@@ -11,49 +11,50 @@ wget
 zsh
 
 gnome
-# bat
+bat
 btop
-# difftastic
+difftastic
 ethtool
 exfatprogs
-# eza
-# fd
-# ffmpeg
+eza
+fd
+ffmpeg
 fzf
 gdu
-# hugo
+hugo
 inetutils
-# jless
+jless
 jq
 less
 lsof
 mediainfo
 ncdu
 openbsd-netcat
-# php
-# xdebug
+php
+xdebug
 powertop
 rclone
 restic
 ripgrep
 rsync
 starship
-# tlp
-# tlp-rdw
+tlp
+tlp-rdw
 unzip
 vim
 wget
 yazi
 zellij
-# zoxide
+zoxide
+zsh
 
 # GUI apps
-# blender
-# gimp
+blender
+gimp
 gnome-extra
 gnome-tweaks
-# keepassxc
-# remmina
-# signal-desktop
+keepassxc
+remmina
+signal-desktop
 sushi
-# vlc
+vlc

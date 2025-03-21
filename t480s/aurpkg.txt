@@ -1,0 +1,10 @@
+chromium-widevine
+gnome-shell-extension-dash-to-dock
+gnome-shell-extension-quake-mode
+jetbrains-toolbox
+librewolf-bin
+localsend-bin
+ungoogled-chromium-bin
+vscodium-bin
+wezterm-git
+zrepl-bin
