@@ -140,7 +140,7 @@ I would like to thank the creators of the following projects / articles making t
 - Maurizio Oliveri - [arch_on_zfs]
 - Chris Titus - [ArchTitus]
 
-Further, I can recommend the excellent [ZFSBootMenu documentation]. I also plan to extend this repository to support traditional BIOS systems via [rEFInd integration].
+Further, I can recommend the excellent [ZFSBootMenu documentation]. I also plan to extend this repository in the future to support traditional BIOS systems, which should be supported, but for now you need UEFI.
 
 
 [Ventoy]: https://www.ventoy.net/en/index.html

@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# // Install intel-ucode if needed or (amd-ucode):
+# pacman -S intel-ucode
+# zfs scrubbing: https://gist.github.com/Soulsuke/6a7d1f09f7fef968a2f32e0ff32a5c4c#file-arch_on_zfs-txt-L297
+
 # https://github.com/archlinux/archinstall/issues/107#issuecomment-841701968
 # arch-chroot does not support localectl
 # maybe with systemd-nspawn as user or root?
