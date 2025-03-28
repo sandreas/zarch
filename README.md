@@ -9,12 +9,19 @@ Script for installing ArchLinux with ZFSBootMenu, native encryption and automati
 ## Features
 
 - ZFSBootMenu on UEFI
-- ArchLinux with Encrypted ZFS with automated snapshots via `zrepl`
-- Configurable profiles for arch packages (`archpkg.txt`), aur packages (`aurpkkg.txt`) and enabled system services (`services.txt`)
+- ArchLinux on Encrypted ZFS with automated snapshots via `zrepl`
+- Configurable profiles for arch packages (`archpkg.txt`), aur packages (`aurpkg.txt`) and enabled system services (`services.txt`)
 - `default` profile with
   - Gnome Desktop Environment
   - `zrepl` auto snapshots
   - Small footprint, helpful utilities
+
+### Todo
+- [ ] Auto-`scrub` via cronjob
+- [ ] More specific predefined profiles (Notebook, Desktop, etc.)
+- [ ] Integrate Ansible (?)
+- [ ] Use `systemd-run` / `systemd-nspawn` instead of `set-locale-once` service
+- [ ] Add BIOS support (if possible)
 
 ## Important Notes
 
