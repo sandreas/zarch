@@ -58,3 +58,9 @@ remmina
 signal-desktop
 sushi
 vlc
+
+# Printer
+cups
+ghostscript
+gutenprint
+system-config-printer

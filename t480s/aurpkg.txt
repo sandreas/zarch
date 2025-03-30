@@ -1,7 +1,8 @@
 chromium-widevine
 gnome-shell-extension-dash-to-dock
-gnome-shell-extension-quake-mode
+# gnome-shell-extension-quake-mode  # needs to be built manually due to gnome version 48
 jetbrains-toolbox
+koreader-bin
 librewolf-bin
 localsend-bin
 ungoogled-chromium-bin
