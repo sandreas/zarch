@@ -15,7 +15,7 @@ bat
 btop
 difftastic
 ethtool
-exfatprogs
+exfat-utils
 eza
 fd
 ffmpeg
@@ -38,6 +38,7 @@ restic
 ripgrep
 rsync
 starship
+syncthing
 tlp
 tlp-rdw
 unzip
