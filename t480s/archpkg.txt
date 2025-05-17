@@ -10,7 +10,7 @@ vim
 wget
 zsh
 
-gnome
+# more command line tools
 bat
 btop
 difftastic
@@ -30,13 +30,12 @@ lsof
 mediainfo
 ncdu
 openbsd-netcat
-php
-xdebug
 powertop
 rclone
 restic
 ripgrep
 rsync
+sshfs
 starship
 syncthing
 tlp
@@ -47,16 +46,26 @@ wget
 yazi
 zellij
 zoxide
-zsh
+
+# software development
+php
+python
+xdebug
+godot
+
+# desktop environment
+gnome
+gnome-extra
+gnome-tweaks
 
 # GUI apps
 blender
 gimp
-gnome-extra
-gnome-tweaks
+inkscape
 keepassxc
 remmina
 signal-desktop
+sweethome3d
 sushi
 vlc
 
@@ -65,3 +74,7 @@ cups
 ghostscript
 gutenprint
 system-config-printer
+
+# libs and dependencies
+## required for InkScape
+python-tinycss2

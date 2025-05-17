@@ -1,5 +1,19 @@
 # zarch
 
+```
+starting backup rpool@backup-2025-04-06
+switching on tasmota: http://192.168.8.96
+{"POWER":"ON"}
+importing rpoolbak in 30 seconds...
+creating backup snapshot:
+newest existing snapshot found: rpool@backup-2025-03-31
+incremental backup rpool@backup-2025-03-31 -> rpool@backup-2025-04-06
+67.0 B 0:00:00 [2.28MiB/s] [  <=>                                                                                                      ]
+cannot receive: failed to read from stream
+cannot receive incremental stream: most recent snapshot of rpoolbak/data does not                    <=>                               ]
+match incremental source
+```
+
 <!-- pacman -Qqme > installs.txt -->
 
 Script for installing ArchLinux with ZFSBootMenu, native encryption and automatic system snapshots.
