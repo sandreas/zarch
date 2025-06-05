@@ -38,6 +38,7 @@ rsync
 sshfs
 starship
 syncthing
+testdisk
 tlp
 tlp-rdw
 unzip
@@ -79,6 +80,10 @@ system-config-printer
 # libs and dependencies
 ## required for InkScape
 python-tinycss2
+
+## linux firmware
+linux-firmware
+linux-firmware-whence
 
 ## audio firmware
 sof-firmware

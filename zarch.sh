@@ -237,8 +237,13 @@ USER_NAME="$(LOAD_CONF_VARIABLE USER_NAME)"
 # maybe just read -rsp "Password: " USER_PASS
 export USER_PASS
 USER_PASS="$(LOAD_CONF_VARIABLE USER_PASS)"
+export USER_GROUPS
+USER_GROUPS="$(LOAD_CONF_VARIABLE USER_GROUPS)"
 export ROOT_PASS
 ROOT_PASS="$(LOAD_CONF_VARIABLE ROOT_PASS)"
+export EXTRA_KERNEL_MODULES
+EXTRA_KERNEL_MODULES="$(LOAD_CONF_VARIABLE EXTRA_KERNEL_MODULES)"
+
 
 if ! [ -d /sys/firmware/efi ]; then
   echo "ERROR:"
@@ -646,6 +651,18 @@ next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/s
 echo "$next_cmd"
 sed -i '/^# %wheel ALL=(ALL:ALL) ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers
 CHECK_SUCCESS "$?" "$next_cmd"
+
+if ! [ "$USER_GROUPS" = "" ]; then
+  RUN arch-chroot /mnt usermod -a -G "$USER_GROUPS" "$USER_NAME"
+fi
+
+for module in $EXTRA_KERNEL_MODULES; do
+  APPEND_TEXT_TO_FILE "$module" "/mnt/etc/modules-load.d/$module.conf" "truncate"
+done
+
+
+# arch-chroot /mnt systemctl enable "$s"
+
 
 
 # CONTAINER_NAME="setupcontainer"
