@@ -48,16 +48,19 @@ yazi
 zellij
 zoxide
 
+
 # software development
 php
 python
 xdebug
 godot
 
+
 # desktop environment
 gnome
 gnome-extra
 gnome-tweaks
+
 
 # GUI apps
 blender
@@ -69,6 +72,10 @@ signal-desktop
 sweethome3d
 sushi
 vlc
+
+# network
+systemd-resolvconf
+wireguard-tools
 
 # Printer
 sane-airscan
