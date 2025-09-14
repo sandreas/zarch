@@ -11,6 +11,7 @@ wget
 zsh
 
 # more command line tools
+7zip
 bat
 btop
 difftastic
@@ -21,6 +22,7 @@ fd
 ffmpeg
 fzf
 gdu
+hexedit
 hugo
 inetutils
 jless
@@ -42,6 +44,7 @@ testdisk
 tlp
 tlp-rdw
 unzip
+vbindiff
 vim
 wget
 yazi
