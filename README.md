@@ -1,7 +1,10 @@
 # zarch
 
 
-<!-- pacman -Qqme > installs.txt -->
+<!-- 
+pacman -Qqme > installs.txt 
+Todo: https://github.com/PolkaMaPhone/cachyos-zfs-setup/blob/a9ee9dc8eb8dfe4e1be902d28a05cc6b415f0d6e/system-scripts/zbm-setup.sh#L211
+-->
 
 Script for installing ArchLinux with ZFSBootMenu, native encryption and automatic system snapshots.
 
@@ -52,6 +55,7 @@ Although this script installation does not require SSH per se, it is sometimes v
 These commands must be executed on the local system, after this you should have remote access via SSH:
 ```bash
 # optional: load keymap (e.g. german keymap), to prevent mistakes typing the password
+# on cachyos, you can use the GUI, search for keyboard and add the german layout via mouse
 # loadkeys de
 
 # permit root login

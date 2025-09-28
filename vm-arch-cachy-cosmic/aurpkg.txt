@@ -1,0 +1,9 @@
+# chromium-widevine
+# jetbrains-toolbox
+# koreader-bin
+# librewolf-bin
+# localsend-bin
+# ungoogled-chromium-bin
+# vscodium-bin
+# wezterm-git
+# zrepl-bin

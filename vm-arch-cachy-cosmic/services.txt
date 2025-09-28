@@ -1,0 +1,4 @@
+# cups
+cosmic-greeter
+NetworkManager
+zrepl

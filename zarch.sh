@@ -505,9 +505,9 @@ RUN arch-chroot /mnt mkinitcpio -P
 RUN arch-chroot /mnt zpool set cachefile=/etc/zfs/zpool.cache "$POOL"
 RUN arch-chroot /mnt zpool set bootfs="$POOL/ROOT/arch" "$POOL"
 RUN arch-chroot /mnt systemctl enable zfs-import-cache zfs-import.target zfs-mount zfs-zed zfs.target
-RUN arch-chroot /mnt mkdir -p /efi/EFI/zbm
-RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/zbm/zfsbootmenu.EFI
-RUN arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\zbm\zfsbootmenu.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet"
+RUN arch-chroot /mnt mkdir -p /efi/EFI/ZBM
+RUN arch-chroot /mnt wget -c https://get.zfsbootmenu.org/latest.EFI -O /efi/EFI/ZBM/ZFSBOOTMENU.EFI
+RUN arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 --create --label "ZFSBootMenu" --loader '\EFI\ZBM\ZFSBOOTMENU.EFI' --unicode "spl_hostid=0x$(hostid) zbm.timeout=1 zbm.prefer=$POOL zbm.import_policy=hostid rd.vconsole.keymap=$KEYMAP rd.vconsole.font=$CONSOLE_FONT quiet"
 
 next_cmd="arch-chroot /mnt zfs set org.zfsbootmenu:commandline=\"noresume init_on_alloc=0 rw spl.spl hostid=$(hostid)\" \"$POOL/ROOT\""
 echo "$next_cmd"

@@ -1,0 +1,96 @@
+# basic utils
+git
+man
+nano
+networkmanager
+openssh
+sudo
+vi
+vim
+wget
+zsh
+
+# more command line tools
+7zip
+bat
+btop
+difftastic
+ethtool
+exfat-utils
+eza
+fd
+ffmpeg
+fzf
+gdu
+hexedit
+hugo
+inetutils
+jless
+jq
+less
+lsof
+mediainfo
+openbsd-netcat
+powertop
+rclone
+restic
+ripgrep
+rsync
+sshfs
+starship
+syncthing
+testdisk
+tlp
+tlp-rdw
+unzip
+vbindiff
+vim
+wget
+yazi
+zellij
+zoxide
+
+
+# software development
+# php
+# python
+# xdebug
+# godot
+
+
+# desktop environment
+cosmic
+
+
+# GUI apps
+# blender
+# gimp
+# inkscape
+# keepassxc
+# remmina
+# signal-desktop
+# sweethome3d
+# sushi
+# vlc
+
+# network
+systemd-resolvconf
+# wireguard-tools
+
+# Printer
+# sane-airscan
+# cups
+# ghostscript
+# gutenprint
+# system-config-printer
+
+# libs and dependencies
+## required for InkScape
+# python-tinycss2
+
+## linux firmware
+linux-firmware-whence
+
+## audio firmware
+sof-firmware
+alsa-firmware
