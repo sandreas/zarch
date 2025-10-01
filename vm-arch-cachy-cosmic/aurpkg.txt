@@ -7,3 +7,4 @@
 # vscodium-bin
 # wezterm-git
 # zrepl-bin
+cosmic-cli

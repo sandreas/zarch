@@ -243,7 +243,8 @@ export ROOT_PASS
 ROOT_PASS="$(LOAD_CONF_VARIABLE ROOT_PASS)"
 export EXTRA_KERNEL_MODULES
 EXTRA_KERNEL_MODULES="$(LOAD_CONF_VARIABLE EXTRA_KERNEL_MODULES)"
-
+export ENABLE_CACHY_OS
+ENABLE_CACHY_OS="$(LOAD_CONF_VARIABLE ENABLE_CACHY_OS)"
 
 if ! [ -d /sys/firmware/efi ]; then
   echo "ERROR:"
@@ -372,11 +373,23 @@ CHECK_SUCCESS "$?" "$next_cmd"
 # enable parallel downloads (faster)
 RUN sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
-# bootstrap base system into zfs filesystem under /mnt
-next_cmd="pacstrap /mnt base base-devel efibootmgr linux-lts linux-firmware linux-lts-headers sudo wget zfs-dkms"
-echo "$next_cmd"
-pacstrap /mnt base base-devel efibootmgr linux-lts linux-firmware linux-lts-headers sudo wget zfs-dkms
-CHECK_SUCCESS "$?" "$next_cmd"
+if [ "$ENABLE_CACHY_OS" = "y" ]; then
+  # RUN curl https://mirror.cachyos.org/cachyos-repo.tar.xz -o /tmp/cachyos-repo.tar.xz
+  # RUN tar xvf /tmp/cachyos-repo.tar.xz -C /tmp
+  # RUN /tmp/cachyos-repo/cachyos-repo.sh --install
+  next_cmd="pacstrap /mnt base base-devel efibootmgr linux-cachyos-lts linux-cachyos-lts-headers linux-cachyos-lts-zfs linux-firmware sudo wget zfs-utils"
+  echo "$next_cmd"
+  # pacstrap /mnt cachyos-keyring cachyos-settings
+    pacstrap /mnt base base-devel efibootmgr linux-cachyos-lts linux-cachyos-lts-headers linux-cachyos-lts-zfs linux-firmware sudo wget zfs-utils
+  CHECK_SUCCESS "$?" "$next_cmd"
+else
+  # bootstrap base system into zfs filesystem under /mnt
+  next_cmd="pacstrap /mnt base base-devel efibootmgr linux-lts linux-firmware linux-lts-headers sudo wget zfs-dkms"
+  echo "$next_cmd"
+  pacstrap /mnt base base-devel efibootmgr linux-lts linux-firmware linux-lts-headers sudo wget zfs-dkms
+  CHECK_SUCCESS "$?" "$next_cmd"
+fi
+
 
 # configure all members of group wheel to have sudo without password until installation is finished
 next_cmd="sed -i '/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/s/^# %wheel/%wheel/g' /mnt/etc/sudoers"
@@ -527,6 +540,13 @@ RUN arch-chroot /mnt chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME/yay-bin"
 # echo "$next_cmd"
 # arch-chroot -u "$USER_NAME" /mnt sudo -S touch /root/.bash_history <<< "$USER_PASS"
 # CHECK_SUCCESS "$?" "$next_cmd"
+
+# Unless the mirror-lists are copied over, makepkg yay fails
+# error: config file /etc/pacman.d/cachyos-mirrorlist could not be read: No such file or directory
+if [ "$ENABLE_CACHY_OS" = "y" ]; then
+  RUN cp -rp /etc/pacman.d/cachyos-* /mnt/etc/pacman.d/
+fi
+
 # make and install package
 RUN arch-chroot -u "$USER_NAME" /mnt makepkg -D "/home/$USER_NAME/yay-bin" -s
 
