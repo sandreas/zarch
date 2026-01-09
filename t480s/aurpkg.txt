@@ -7,5 +7,6 @@ librewolf-bin
 localsend-bin
 ungoogled-chromium-bin
 vscodium-bin
+# wayfarer
 wezterm-git
 zrepl-bin

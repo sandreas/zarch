@@ -15,6 +15,7 @@ zsh
 bat
 btop
 difftastic
+docx2txt
 ethtool
 exfat-utils
 eza
@@ -27,6 +28,7 @@ hugo
 inetutils
 jless
 jq
+jwt-cli
 less
 lsof
 mediainfo
